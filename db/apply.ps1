@@ -40,7 +40,7 @@ if ($PsqlPath -and (Test-Path $PsqlPath)) {
 }
 if (-not $psql) { throw 'No se encontro psql. Pasalo con -PsqlPath o agregalo al PATH.' }
 
-$conn = @('-h', $PgHost, '-p', $Port, '-U', $User)
+$conn = @('-h', $PgHost, '-p', $Port, '-U', $User, '-P', 'pager=off')  # sin "-- Mas --"
 
 # OJO: psql mete varios -c encadenados en UNA transaccion, y DROP/CREATE DATABASE
 # no pueden correr dentro de una transaccion. Por eso cada uno va en su propia

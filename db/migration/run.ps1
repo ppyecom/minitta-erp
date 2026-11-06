@@ -27,6 +27,8 @@ $root    = Split-Path $PSScriptRoot -Parent      # carpeta db/
 # Los .sql estan en UTF-8. Sin esto psql toma la codificacion de Windows
 # (WIN1252 en PCs en espanol) y corta en la primera tilde: "0x81 ... WIN1252".
 $env:PGCLIENTENCODING = 'UTF8'
+# sin los NOTICE de "la tabla x no existe, omitiendo": solo avisos y errores
+$env:PGOPTIONS = '-c client_min_messages=warning'
 $staging = Join-Path $PSScriptRoot '.staging'
 
 # --- ubicar psql -------------------------------------------------------------
@@ -47,7 +49,8 @@ if (-not $env:PGPASSWORD) {
 
 function Invoke-Psql {
   param([string]$Db, [string[]]$PsqlArgs, [switch]$AllowFail)
-  $all = @('-v','ON_ERROR_STOP=1','-h',$PgHost,'-p',$Port,'-U',$User,'-d',$Db) + $PsqlArgs
+  # pager=off: con miles de filas psql muestra "-- Mas --" y se queda esperando una tecla
+  $all = @('-v','ON_ERROR_STOP=1','-P','pager=off','-h',$PgHost,'-p',$Port,'-U',$User,'-d',$Db) + $PsqlArgs
   & $psql @all
   if ($LASTEXITCODE -ne 0 -and -not $AllowFail) {
     throw "psql fallo (exit $LASTEXITCODE): $($PsqlArgs -join ' ')"
@@ -100,9 +103,15 @@ foreach ($t in $tables) {
 
 # --- 5. transformacion ------------------------------------------------------
 Write-Host '[5/6] Transformando legacy -> v2...' -ForegroundColor Yellow
+Write-Host '        (con muchos articulos tarda varios minutos: no cerrar la ventana)' -ForegroundColor DarkGray
 foreach ($step in @('030_maps.sql','040_catalog.sql','050_pricing.sql','060_inventory.sql')) {
-  Write-Host "        $step"
-  Invoke-Psql -Db $Database -PsqlArgs @('-q','-f', (Join-Path $PSScriptRoot $step))
+  Write-Host "        $step ..." -NoNewline
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  # la salida de estos pasos es una fila por excepcion registrada: con 100 mil
+  # articulos son cientos de miles de lineas. Todo queda en migration.exception
+  # y en el reporte del paso 6, asi que aca no se imprime.
+  Invoke-Psql -Db $Database -PsqlArgs @('-q','-f', (Join-Path $PSScriptRoot $step)) | Out-Null
+  Write-Host (" ok ({0:mm\:ss})" -f $sw.Elapsed)
 }
 
 # --- 6. reporte -------------------------------------------------------------
