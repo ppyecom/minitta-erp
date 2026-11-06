@@ -16,8 +16,10 @@ SET LOCAL app.client_info = 'migracion legacy->v2';
 INSERT INTO pricing.price
   (price_list_id, variant_id, mode, amount, price_per_gram, valid_from, created_by, notes)
 SELECT pl.id, v.id, 'manual', d.amount,
-       CASE WHEN s.prec_gr > 0 THEN s.prec_gr END,
-       COALESCE(s.fecha_ingreso, now()),
+       CASE WHEN s.prec_gr > 0 AND s.prec_gr < 1e9 THEN s.prec_gr END,
+       -- una fecha de ingreso futura (reloj adelantado del legacy) dejaría el
+       -- precio "vigente desde el futuro" y resolve_price() no lo encontraría
+       LEAST(COALESCE(s.fecha_ingreso, now()), now()),
        1,
        'migrado del legacy sin modificar'
 FROM migration.article_stage s
@@ -28,7 +30,7 @@ CROSS JOIN LATERAL (VALUES
   ('mayorista',   s.precio_mayor)
 ) AS d(list_code, amount)
 JOIN pricing.price_list pl ON pl.code = d.list_code
-WHERE d.amount IS NOT NULL AND d.amount > 0;
+WHERE d.amount IS NOT NULL AND d.amount > 0 AND d.amount < 1e11;
 
 -- la lista de e-commerce queda VACÍA a propósito: sus precios viven hoy en el
 -- Postgres de la tienda online, que es otra fuente. No se inventan acá.
@@ -62,11 +64,12 @@ INSERT INTO pricing.variant_cost
   (variant_id, metal_cost, stone_cost, other_cost, currency_code, source, valid_from, created_by, notes)
 SELECT v.id,
        0,
-       COALESCE(NULLIF(s.precio_piedra, 0), 0),
-       COALESCE(NULLIF(s.precio_producto, 0), 0),
+       -- CHECK >= 0: un costo negativo del legacy queda en 0, no corta la migración
+       CASE WHEN s.precio_piedra   > 0 AND s.precio_piedra   < 1e11 THEN s.precio_piedra   ELSE 0 END,
+       CASE WHEN s.precio_producto > 0 AND s.precio_producto < 1e11 THEN s.precio_producto ELSE 0 END,
        'PEN',
        'migration',
-       COALESCE(s.fecha_ingreso, now()),
+       LEAST(COALESCE(s.fecha_ingreso, now()), now()),
        1,
        CASE WHEN s.clave IS NOT NULL
             THEN format('CLAVE del legacy sin descifrar: "%s". Revisar contra el costo real.', s.clave)

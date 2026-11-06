@@ -39,9 +39,15 @@ CREATE TABLE migration.legacy_stock_snapshot (
 INSERT INTO migration.legacy_stock_snapshot (
   legacy_code, variant_id, legacy_num_tienda, location_id,
   stock_en_stocks, stock_tiendas, stock_en_articulo, stock_minimo, legacy_estado, legacy_usuario, discrepancia)
+-- las columnas son numeric(14,3): un valor absurdo del legacy queda vacío en vez
+-- de desbordar y cortar la migración
 SELECT x.legacy_code, x.variant_id, x.num_tienda, x.location_id,
-       x.stock, x.suma, x.articulo, x.stock_minimo, x.estado, x.usuario,
-       x.suma - x.articulo
+       CASE WHEN abs(x.stock)        < 1e10 THEN x.stock        END,
+       CASE WHEN abs(x.suma)         < 1e10 THEN x.suma         END,
+       CASE WHEN abs(x.articulo)     < 1e10 THEN x.articulo     END,
+       CASE WHEN abs(x.stock_minimo) < 1e10 THEN x.stock_minimo END,
+       x.estado, x.usuario,
+       CASE WHEN abs(x.suma - x.articulo) < 1e10 THEN x.suma - x.articulo END
 FROM (
   SELECT btrim(st.codigo_articulo) AS legacy_code,
          v.variant_id,
@@ -83,7 +89,7 @@ FROM migration.legacy_stock_snapshot WHERE location_id IS NULL;
 -- 2. stock mínimo por sede: eso sí se migra, es configuración, no saldo
 -- -----------------------------------------------------------------------------
 INSERT INTO inventory.stock (variant_id, location_id, on_hand, min_quantity)
-SELECT ls.variant_id, ls.location_id, 0, COALESCE(max(ls.stock_minimo), 0)
+SELECT ls.variant_id, ls.location_id, 0, GREATEST(COALESCE(max(ls.stock_minimo), 0), 0)  -- CHECK >= 0
 FROM migration.legacy_stock_snapshot ls
 JOIN core.location l ON l.id = ls.location_id
 WHERE ls.variant_id IS NOT NULL AND ls.location_id IS NOT NULL AND l.holds_stock

@@ -92,8 +92,9 @@ SELECT b.*,
        END                                          AS desc_height_mm,
        -- "con 20 pi 2.5 mm" → 20 piedras de 2.5 mm
        -- OJO: en PostgreSQL el límite de palabra es \M / \y, NO \b (que es backspace)
-       CASE WHEN b.raw_desc ~* '([0-9]+)\s*pi\M'
-            THEN (regexp_match(b.raw_desc, '([0-9]+)\s*pi\M','i'))[1]::int END AS desc_stone_qty,
+       -- hasta 6 cifras: un número más largo es basura y desbordaría el ::int
+       CASE WHEN b.raw_desc ~* '\m([0-9]{1,6})\s*pi\M'
+            THEN (regexp_match(b.raw_desc, '\m([0-9]{1,6})\s*pi\M','i'))[1]::int END AS desc_stone_qty,
        CASE WHEN b.raw_desc ~* '([0-9]+(\.[0-9]+)?)\s*mm'
             THEN (regexp_match(b.raw_desc, '([0-9]+(?:\.[0-9]+)?)\s*mm','i'))[1]::numeric END
                                                     AS desc_stone_mm,
@@ -226,19 +227,37 @@ GROUP BY mat_letter, ala, cla, base_name, desc_fp, precio;
 ALTER TABLE migration.product_group ADD COLUMN product_id bigint;
 ALTER TABLE migration.product_group ADD COLUMN product_code text;
 
--- código de producto: prefijo del legacy + secuencia cuando el prefijo se repite
+-- código de producto: prefijo del legacy + secuencia cuando el prefijo se repite.
+-- La secuencia se cuenta sobre el PREFIJO YA ARMADO, no sobre las tres letras:
+-- con los datos reales, combinaciones distintas escriben el mismo texto
+-- ('o'+'A'+'M' y 'O'+'A'+'M', o 'OA'+'M'+'' y 'O'+'AM'+'') y numeraban cada una
+-- desde 001: "llave duplicada (code)=(OAM-126)". Letras vacías o NULL no anulan
+-- el código (NULL || 'x' es NULL); sin ninguna letra, el prefijo es ART.
 UPDATE migration.product_group g
-   SET product_code = g.mat_letter || g.ala || g.cla ||
+   SET product_code = cnt.prefix ||
        CASE WHEN cnt.n > 1
-            THEN '-' || lpad(row_num::text, 3, '0')
+            THEN '-' || lpad(cnt.row_num::text, 3, '0')
             ELSE '' END
 FROM (
-  SELECT grp,
-         row_number() OVER (PARTITION BY mat_letter, ala, cla ORDER BY grp) AS row_num,
-         count(*)    OVER (PARTITION BY mat_letter, ala, cla)               AS n
+  SELECT grp, p.prefix,
+         row_number() OVER (PARTITION BY p.prefix ORDER BY grp) AS row_num,
+         count(*)    OVER (PARTITION BY p.prefix)               AS n
   FROM migration.product_group
+  CROSS JOIN LATERAL (
+    SELECT COALESCE(NULLIF(upper(regexp_replace(
+             COALESCE(mat_letter, '') || COALESCE(ala, '') || COALESCE(cla, ''),
+             '[^[:alnum:]Ññ]', '', 'g')), ''), 'ART') AS prefix
+  ) p
 ) cnt
 WHERE cnt.grp = g.grp;
+
+-- red de seguridad: si aun así dos grupos quedaran con el mismo código (un
+-- prefijo 'OAM-1' que coincida con 'OAM' + secuencia), el número de grupo desempata
+UPDATE migration.product_group g
+   SET product_code = g.product_code || '-G' || g.grp
+FROM (SELECT product_code FROM migration.product_group
+      GROUP BY product_code HAVING count(*) > 1) d
+WHERE d.product_code = g.product_code;
 
 INSERT INTO catalog.product (
   code, slug, name, kind, status, long_desc, material_id,
@@ -254,9 +273,11 @@ SELECT g.product_code,
             ELSE 'active' END,
        g.rep_desc,
        g.material_id,
-       round(g.avg_peso, 3),
-       g.width_mm,
-       g.height_mm,
+       -- los CHECK de catalog.product exigen > 0 (>= 0 el peso): un 0 o un negativo
+       -- del legacy queda vacío en vez de cortar la migración entera
+       CASE WHEN g.avg_peso >= 0 AND g.avg_peso < 1e8 THEN round(g.avg_peso, 3) END,
+       CASE WHEN g.width_mm  > 0 AND g.width_mm  < 1e7 THEN g.width_mm  END,
+       CASE WHEN g.height_mm > 0 AND g.height_mm < 1e7 THEN g.height_mm END,
        CASE WHEN g.has_ring_size
             THEN (SELECT id FROM catalog.size_scale WHERE code = 'aro_pe') END,
        'quantity',
@@ -308,15 +329,19 @@ WITH v AS (
          s.v2_color_code,
          s.metal_primary,
          s.metal_secondary,
-         CASE WHEN s.peso > 0 THEN s.peso END                           AS weight_g,
-         s.stock,
+         CASE WHEN s.peso > 0 AND s.peso < 1e8 THEN s.peso END          AS weight_g,
+         CASE WHEN abs(s.stock) < 1e10 THEN s.stock END                 AS stock,
          CASE WHEN cardinality(s.quarantine) > 0 THEN 'draft'::catalog.product_status
               WHEN COALESCE(s.dejar_usar, false) THEN 'discontinued'
               WHEN NOT COALESCE(s.activo, false) THEN 'draft'
               ELSE 'active' END                                         AS status
   FROM migration.article_stage s
   JOIN migration.product_group g
-    ON  g.mat_letter = s.mat_letter AND g.ala = s.ala AND g.cla = s.cla
+    -- IS NOT DISTINCT FROM y no '=': con una letra NULL, '=' dejaba al artículo
+    -- sin variante (y fuera de la migración) sin avisar
+    ON  g.mat_letter IS NOT DISTINCT FROM s.mat_letter
+    AND g.ala        IS NOT DISTINCT FROM s.ala
+    AND g.cla        IS NOT DISTINCT FROM s.cla
     AND g.base_name IS NOT DISTINCT FROM s.base_name
     AND g.desc_fp   IS NOT DISTINCT FROM s.desc_fp
     AND g.precio    IS NOT DISTINCT FROM s.precio
@@ -344,13 +369,31 @@ WITH v AS (
                             COALESCE(v.v2_color_code, ''))
 )
 SELECT k.*,
-       -- si dos combinaciones distintas generan el mismo texto, se desempata
+       -- si dos variantes distintas generan el mismo texto, se desempata con el
+       -- código viejo de la variante: es único y la gente de tienda lo reconoce.
+       -- (combo_rank no servía: se cuenta por producto, y dos productos distintos
+       -- con el mismo texto terminaban ambos en '-01')
        CASE WHEN count(*) OVER (PARTITION BY k.sku_base) > k.pieces
-            THEN k.sku_base || '-' || lpad(k.combo_rank::text, 2, '0')
+            THEN k.sku_base || '-' || upper(regexp_replace(k.rep_legacy_code, '[^[:alnum:]]', '', 'g'))
             ELSE k.sku_base END AS sku
 FROM keyed k;
 
 CREATE INDEX variant_stage_legacy_idx ON migration.variant_stage (legacy_code);
+
+-- red de seguridad: catalog.variant.sku es UNIQUE y un choque corta toda la
+-- migración. Si dos variantes distintas (distinto artículo representante)
+-- quedaron con el mismo SKU, la segunda en adelante lleva un número.
+WITH reps AS (
+  SELECT DISTINCT sku, rep_legacy_code FROM migration.variant_stage
+), d AS (
+  SELECT sku, rep_legacy_code,
+         row_number() OVER (PARTITION BY sku ORDER BY rep_legacy_code) AS r
+  FROM reps
+)
+UPDATE migration.variant_stage v
+   SET sku = v.sku || '-' || d.r
+FROM d
+WHERE d.r > 1 AND d.sku = v.sku AND d.rep_legacy_code = v.rep_legacy_code;
 
 INSERT INTO catalog.variant (
   product_id, sku, size_value_id, size_label, metal_color, secondary_metal_color,
@@ -440,8 +483,10 @@ INSERT INTO catalog.variant_stone (
 SELECT v.id,
        COALESCE(s.stone_id, s.color_as_stone_id),
        s.v2_color_code,
-       COALESCE(s.desc_stone_qty, 1),
-       COALESCE(s.medida_piedra, s.desc_stone_mm),
+       -- CHECK quantity > 0 y size_mm > 0: "0 pi" o "0 mm" no pueden cortar todo
+       CASE WHEN s.desc_stone_qty > 0 THEN s.desc_stone_qty ELSE 1 END,
+       (SELECT x FROM (VALUES (s.medida_piedra), (s.desc_stone_mm)) m(x)
+         WHERE x > 0 AND x < 1e6 LIMIT 1),
        CASE WHEN s.precio_piedra > 0 THEN s.precio_piedra END,
        CASE WHEN s.precio_piedra > 0 THEN 'PEN' END,
        CASE WHEN s.desc_stone_qty IS NOT NULL
