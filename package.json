@@ -1,0 +1,13 @@
+{
+  "name": "minitta-erp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ERP de Minitta Joyería — base de datos v2 (productos, stock, sedes)",
+  "scripts": {
+    "export:legacy": "node db/migration/021_export_from_sqlserver.js",
+    "check:legacy": "node db/migration/021_export_from_sqlserver.js --check"
+  },
+  "dependencies": {
+    "mssql": "^12.2.0"
+  }
+}

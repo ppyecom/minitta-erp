@@ -1,0 +1,23 @@
+# credenciales — nunca al repo
+.env
+.env.local
+*.local.txt
+credenciales*
+
+# artefactos de las corridas de migración
+db/migration/.staging/
+db/migration/.report/
+
+# node
+node_modules/
+npm-debug.log*
+
+# datos del ERP viejo (exports, planillas)
+*.csv
+*.xlsx
+*.bak
+!db/migration/fixtures/*.csv
+
+# sistema
+.DS_Store
+Thumbs.db
