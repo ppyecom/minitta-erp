@@ -51,10 +51,16 @@ En Linux o macOS:
 export PGPASSWORD=...; ./db/apply.sh minitta_erp
 ```
 
-Opciones: `-SmokeTest` / `--smoke-test` corre la prueba de humo al final, `-Recreate` /
-`--recreate` borra la base y la vuelve a crear desde cero, `-Drop` / `--drop` la elimina al
-terminar (para una base de prueba desechable). El servidor se elige con `-PgHost`/`-Port`/
-`-User` o con las variables `PGHOST`/`PGPORT`/`PGUSER`.
+Las opciones son las mismas en los dos scripts, pero **`apply.ps1` las lleva con un guion y
+`apply.sh` con dos** — mezclarlas no da un error obvio (PowerShell contesta «No se encuentra
+ningún parámetro posicional»):
+
+| `apply.ps1` | `apply.sh` | |
+|---|---|---|
+| `-SmokeTest` | `--smoke-test` | corre `db/999_smoke_test.sql` al final |
+| `-Recreate` | `--recreate` | borra la base y la vuelve a crear desde cero |
+| `-Drop` | `--drop` | la elimina al terminar (base de prueba desechable) |
+| `-PgHost` `-Port` `-User` | `--host` `--port` `--user` | el servidor; por defecto toma `PGHOST`/`PGPORT`/`PGUSER` |
 
 ## Verificar que funciona
 
