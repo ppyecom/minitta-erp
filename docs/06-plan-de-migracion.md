@@ -66,6 +66,15 @@ $env:PGPASSWORD = "..."; cd db\migration; ./run.ps1 -SourceDir . -SkipPrepare -K
 Necesita `ERP_SQL_SERVER`, `ERP_SQL_PORT`, `ERP_SQL_DATABASE`, `ERP_SQL_USER` y
 `ERP_SQL_PASSWORD` en el entorno o en el `.env` de la raíz (ver `.env.example`).
 
+**Los nombres de las tablas en el servidor no son los del export CSV.** El sync del
+e-commerce (que lee esta misma base) usa `ALMACEN.ARTICULO`, `SUNAT.TIPO_MONEDA` y
+`detalle_tienda` para el stock por tienda. `021` prueba esos nombres primero y los del CSV
+después, compara las columnas una por una y `--check` muestra qué tabla encontró y qué
+columnas faltan. Si falta una esencial, se corta y lista las columnas que sí existen.
+
+`STOCK` de la ficha del artículo es el **total**: el descuadre se mide contra la **suma** de
+sus tiendas, uno por artículo (`v_descuadres_stock` muestra el detalle por tienda).
+
 > **Aparte, sobre seguridad — en el otro repositorio:** en `ppyecom/minittasoft`, las
 > credenciales de este mismo SQL Server están **escritas en el código**, en
 > `backend/src/services/erp-sync.service.ts` (líneas 23-27), como valores por defecto:

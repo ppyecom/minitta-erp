@@ -12,25 +12,70 @@ inventario. El diagnóstico completo, con ejemplos de las filas reales, está en
 
 ---
 
+## Usar el ERP
+
+Doble clic en **`Iniciar ERP.cmd`**: arranca PostgreSQL, compila si hace falta y abre
+<http://localhost:3000>. Cerrar la ventana lo detiene. La primera vez pide crear el usuario
+administrador.
+
+Para trabajar en el código, con recarga en vivo al guardar:
+
+```powershell
+.\scripts\iniciar.ps1 -Dev        # interfaz en http://localhost:5173, API en :3000
+.\scripts\iniciar.ps1 -Build      # uso diario, forzando recompilar tras un cambio
+```
+
+En esta PC Node.js y PostgreSQL son **portables**, en `D:\minitta-tools` (sin instalador ni
+servicio de Windows). El `.env` apunta a ellos con `NODE_BIN`, `PG_BIN` y `PG_DATA`.
+`npm run db:start` / `db:stop` / `db:status` manejan PostgreSQL; después de reiniciar la PC,
+`Iniciar ERP.cmd` lo vuelve a levantar solo.
+
+---
+
 ## Qué hay acá
 
 ```
-db/                     esquema PostgreSQL (migraciones 001..007 + prueba de humo)
+apps/api/               API en NestJS: un módulo por dominio (core, catalog, pricing, inventory)
+apps/web/               interfaz en React + Vite + Tailwind: las mismas carpetas por módulo
+packages/shared/        enums con su etiqueta en español y validaciones (Zod) de API y web
+db/                     esquema PostgreSQL (migraciones 001..008 + prueba de humo)
 db/apply.ps1 .sh        aplica el esquema sobre una base
 db/migration/           migración desde el ERP viejo (SQL Server)
 docs/                   diagnóstico, modelo, decisiones, cobertura y plan de migración
+scripts/                arranque del ERP y del PostgreSQL portable
+uploads/                imágenes de productos (locales, fuera de git)
 CLAUDE.md               las reglas que el esquema impone y no hay que romper
 ```
 
-Motor: **PostgreSQL 16+** (verificado en 18.1), UTF-8, cuatro esquemas:
+Motor: **PostgreSQL 16+** (verificado en 18.1 y 18.6), UTF-8, cuatro esquemas:
 `core` (sedes, usuarios, auditoría) · `catalog` (productos, variantes, piedras) ·
 `pricing` (listas, precios, costos) · `inventory` (kardex, saldos, series).
 
 56 tablas y 6 vistas.
 
+### La aplicación
+
+- **API** (`apps/api`): NestJS con [Kysely](https://kysely.dev) (SQL tipado, sin ORM), para
+  que la app llame a `post_movement()`, `resolve_price()` y las demás funciones del esquema
+  en lugar de saltearlas con `INSERT` sueltos. Cada escritura abre una transacción y fija
+  `app.user_id` (regla 4 de [CLAUDE.md](CLAUDE.md)). Los errores de la base (`saldo
+  insuficiente…`) llegan a la pantalla tal cual, en español.
+- **Interfaz** (`apps/web`): React 19, TanStack Query, Radix UI y Tailwind 4, con modo
+  claro/oscuro. Cada pantalla se carga al abrirla: sumar módulos no hace más lento el arranque.
+- **Imágenes**: se guardan en `uploads/` como WebP de 1600 px como máximo; la base guarda la
+  ruta en `media.storage_key`, igual que guardaría el id de Cloudinary.
+- **Usuarios**: todavía sin contraseña. Se elige quién usa la PC en la barra superior y eso
+  firma la auditoría y el kardex. `can_see_cost` decide quién ve y edita costos.
+- **Tipos de la base**: `npm run db:types` regenera `apps/api/src/db/db-types.ts` después de
+  cada migración nueva.
+
+Módulos nuevos (ventas, compras, caja, clientes, taller): una carpeta en
+`apps/api/src/modules/` y otra en `apps/web/src/modules/`, más su entrada en `app.module.ts`
+y en `App.tsx`. Se enganchan al inventario por `inventory.post_movement()` con su `doc_type`.
+
 ---
 
-## Arrancar
+## Aplicar el esquema a mano
 
 ```bash
 cp .env.example .env
@@ -112,7 +157,16 @@ esquema, están en [CLAUDE.md](CLAUDE.md).
 
 ## Migrar desde el ERP viejo
 
-Guía completa en [docs/06-plan-de-migracion.md](docs/06-plan-de-migracion.md).
+**Paso a paso para instalar en la PC de la red y migrar:
+[docs/07-instalar-y-migrar.md](docs/07-instalar-y-migrar.md).** En resumen:
+
+```powershell
+.\scripts\migrar.ps1            # en seco: base temporal + reporte, repetible
+.\scripts\migrar.ps1 -Final     # definitiva: borra y recrea la base del ERP
+```
+
+Qué decide el script y por qué: [docs/06-plan-de-migracion.md](docs/06-plan-de-migracion.md).
+Lo de abajo es lo que `migrar.ps1` hace por dentro.
 
 **No migrar desde los CSV que exporta el ERP viejo.** No entrecomillan los campos de texto,
 así que cualquier descripción con una coma corre las columnas: en el export de muestra, 48%
@@ -150,6 +204,7 @@ regla.
 | [04 — Decisiones](docs/04-decisiones-confirmadas.md) | listas de precio, serialización, arranque del stock, sedes cerradas |
 | [05 — Cobertura de datos](docs/05-cobertura-de-datos.md) | las 50 columnas del legacy una por una, y los 40 datos que hoy no están en ninguna tabla |
 | [06 — Plan de migración](docs/06-plan-de-migracion.md) | cómo correrla, qué decide el script, qué falta decidir |
+| [07 — Instalar y migrar](docs/07-instalar-y-migrar.md) | paso a paso en la PC que llega al servidor viejo |
 
 ---
 

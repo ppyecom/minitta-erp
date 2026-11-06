@@ -1,0 +1,36 @@
+{
+  "name": "@minitta/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API del ERP (NestJS): un módulo por dominio sobre la base PostgreSQL v2",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "nest start --watch --preserveWatchOutput",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:types": "node scripts/gen-types.js"
+  },
+  "dependencies": {
+    "@minitta/shared": "*",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "dotenv": "^16.5.0",
+    "kysely": "^0.28.2",
+    "pg": "^8.16.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "sharp": "^0.34.2",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.7",
+    "@types/express": "^5.0.2",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.15.2",
+    "kysely-codegen": "^0.18.5",
+    "typescript": "~5.8.3"
+  }
+}
