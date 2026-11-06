@@ -24,6 +24,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Los .sql estan en UTF-8. Sin esto psql toma la codificacion de Windows
+# (WIN1252 en PCs en espanol) y corta en la primera tilde: "0x81 ... WIN1252".
+$env:PGCLIENTENCODING = 'UTF8'
+
 # --- ubicar psql -------------------------------------------------------------
 if ($PsqlPath -and (Test-Path $PsqlPath)) {
   $psql = $PsqlPath

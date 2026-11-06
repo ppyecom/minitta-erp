@@ -23,6 +23,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root    = Split-Path $PSScriptRoot -Parent      # carpeta db/
+
+# Los .sql estan en UTF-8. Sin esto psql toma la codificacion de Windows
+# (WIN1252 en PCs en espanol) y corta en la primera tilde: "0x81 ... WIN1252".
+$env:PGCLIENTENCODING = 'UTF8'
 $staging = Join-Path $PSScriptRoot '.staging'
 
 # --- ubicar psql -------------------------------------------------------------
@@ -51,7 +55,7 @@ function Invoke-Psql {
 }
 
 Write-Host ''
-Write-Host "=== Migracion ERP v2 (corrida en seco) ===" -ForegroundColor Cyan
+Write-Host "=== Migracion ERP v2 $(if ($KeepDatabase) { '' } else { '(corrida en seco)' }) ===" -ForegroundColor Cyan
 Write-Host "    psql     : $psql"
 Write-Host "    servidor : $PgHost`:$Port"
 Write-Host "    base     : $Database"

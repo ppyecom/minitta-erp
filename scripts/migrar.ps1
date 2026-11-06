@@ -44,6 +44,7 @@ $pgPort = if ($vars['PGPORT']) { $vars['PGPORT'] } else { '5432' }
 $pgUser = if ($vars['PGUSER']) { $vars['PGUSER'] } else { 'postgres' }
 $pgDb   = if ($vars['PGDATABASE']) { $vars['PGDATABASE'] } else { 'minitta_erp' }
 $env:PGPASSWORD = $vars['PGPASSWORD']
+$env:PGCLIENTENCODING = 'UTF8'   # los .sql estan en UTF-8, no en la codificacion de Windows
 $apiPort = if ($vars['API_PORT']) { $vars['API_PORT'] } else { '3000' }
 
 if (-not $SinExportar) {
