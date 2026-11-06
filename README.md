@@ -157,7 +157,16 @@ esquema, están en [CLAUDE.md](CLAUDE.md).
 
 ## Migrar desde el ERP viejo
 
-Guía completa en [docs/06-plan-de-migracion.md](docs/06-plan-de-migracion.md).
+**Paso a paso para instalar en la PC de la red y migrar:
+[docs/07-instalar-y-migrar.md](docs/07-instalar-y-migrar.md).** En resumen:
+
+```powershell
+.\scripts\migrar.ps1            # en seco: base temporal + reporte, repetible
+.\scripts\migrar.ps1 -Final     # definitiva: borra y recrea la base del ERP
+```
+
+Qué decide el script y por qué: [docs/06-plan-de-migracion.md](docs/06-plan-de-migracion.md).
+Lo de abajo es lo que `migrar.ps1` hace por dentro.
 
 **No migrar desde los CSV que exporta el ERP viejo.** No entrecomillan los campos de texto,
 así que cualquier descripción con una coma corre las columnas: en el export de muestra, 48%
@@ -195,6 +204,7 @@ regla.
 | [04 — Decisiones](docs/04-decisiones-confirmadas.md) | listas de precio, serialización, arranque del stock, sedes cerradas |
 | [05 — Cobertura de datos](docs/05-cobertura-de-datos.md) | las 50 columnas del legacy una por una, y los 40 datos que hoy no están en ninguna tabla |
 | [06 — Plan de migración](docs/06-plan-de-migracion.md) | cómo correrla, qué decide el script, qué falta decidir |
+| [07 — Instalar y migrar](docs/07-instalar-y-migrar.md) | paso a paso en la PC que llega al servidor viejo |
 
 ---
 

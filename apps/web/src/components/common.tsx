@@ -227,7 +227,8 @@ export function Thumb({ src, size = 36, className }: { src?: string | null; size
       className={cn('flex shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/60', className)}
       style={{ width: size, height: size }}
     >
-      {src && !err ? (
+      {/* 'pendiente://' = foto del sistema viejo que la migración registró pero no copió */}
+      {src && !src.startsWith('pendiente') && !err ? (
         <img src={src} alt="" loading="lazy" className="size-full object-cover" onError={() => setErr(true)} />
       ) : (
         <ImageOff className="size-3.5 text-muted-foreground/50" />

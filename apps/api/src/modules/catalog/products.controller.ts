@@ -63,7 +63,8 @@ export class ProductsController {
                (SELECT md.url FROM catalog.media md
                  WHERE md.kind = 'image' AND (md.product_id = p.id
                         OR md.variant_id IN (SELECT id FROM catalog.variant WHERE product_id = p.id))
-                 ORDER BY md.is_primary DESC, md.sort_order, md.id LIMIT 1) AS image_url
+                 ORDER BY md.storage_key LIKE 'pendiente/%', md.is_primary DESC, md.sort_order, md.id
+                 LIMIT 1) AS image_url
         FROM catalog.product p
         LEFT JOIN catalog.material m ON m.id = p.material_id
         LEFT JOIN catalog.product_category pc ON pc.product_id = p.id AND pc.is_primary

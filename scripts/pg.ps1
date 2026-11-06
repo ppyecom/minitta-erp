@@ -1,12 +1,15 @@
 # =============================================================================
-# Servidor PostgreSQL portable del ERP (sin servicio de Windows).
-# Lee PG_BIN, PG_DATA y PGPORT del .env de la raiz.
+# Servidor PostgreSQL del ERP.
 #
 #   ./scripts/pg.ps1 start     arranca el servidor (si no esta corriendo)
 #   ./scripts/pg.ps1 stop      lo detiene
 #   ./scripts/pg.ps1 status    dice si esta corriendo
 #
-# Despues de reiniciar la PC hay que volver a correr "start" (o npm run db:start).
+# Dos formas de tener PostgreSQL, segun el .env:
+#   - Portable (PG_BIN y PG_DATA definidos): este script lo arranca y lo detiene.
+#     Despues de reiniciar la PC hay que volver a correr "start".
+#   - Instalado con el instalador oficial (PG_BIN/PG_DATA vacios): corre como
+#     servicio de Windows y arranca solo. Aca solo se verifica que responda.
 # =============================================================================
 param([Parameter(Position = 0)][ValidateSet('start', 'stop', 'status')][string]$Action = 'status')
 
@@ -20,9 +23,28 @@ Get-Content $envFile | ForEach-Object {
   if ($_ -match '^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$') { $vars[$Matches[1]] = $Matches[2].Trim() }
 }
 $bin = $vars['PG_BIN']; $data = $vars['PG_DATA']
+$pgHost = if ($vars['PGHOST']) { $vars['PGHOST'] } else { 'localhost' }
 $port = if ($vars['PGPORT']) { $vars['PGPORT'] } else { '5432' }
-if (-not $bin -or -not $data) { throw 'Faltan PG_BIN y PG_DATA en el .env' }
 
+function Test-PgPort {
+  $c = New-Object System.Net.Sockets.TcpClient
+  try { $c.Connect($pgHost, [int]$port); return $true } catch { return $false } finally { $c.Close() }
+}
+
+# --- PostgreSQL instalado como servicio de Windows ---------------------------------
+if (-not $bin -or -not $data) {
+  if (Test-PgPort) {
+    Write-Host "PostgreSQL (servicio de Windows) respondiendo en $pgHost`:$port" -ForegroundColor Green
+    exit 0
+  }
+  if ($Action -eq 'stop') { Write-Host 'PostgreSQL corre como servicio: se detiene desde services.msc' -ForegroundColor DarkGray; exit 0 }
+  Write-Host "PostgreSQL no responde en $pgHost`:$port." -ForegroundColor Red
+  Write-Host 'Revisar en services.msc que el servicio postgresql-x64-NN este iniciado,' -ForegroundColor Red
+  Write-Host 'o definir PG_BIN y PG_DATA en el .env si se usa la version portable.' -ForegroundColor Red
+  exit 1
+}
+
+# --- PostgreSQL portable --------------------------------------------------------------
 $pgctl = Join-Path $bin 'pg_ctl.exe'
 $log = Join-Path (Split-Path $data -Parent) 'postgres.log'
 

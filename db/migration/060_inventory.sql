@@ -24,41 +24,49 @@ CREATE TABLE migration.legacy_stock_snapshot (
   variant_id        bigint REFERENCES catalog.variant(id),
   legacy_num_tienda int,
   location_id       bigint REFERENCES core.location(id),
-  stock_en_stocks   numeric(14,3),     -- STOCKS.stock (por tienda)
+  stock_en_stocks   numeric(14,3),     -- stock de ESTA tienda (detalle_tienda / STOCKS)
+  stock_tiendas     numeric(14,3),     -- suma de todas las tiendas del artículo
   stock_en_articulo numeric(14,3),     -- almacen_articulo.STOCK (global)
   stock_minimo      numeric(14,3),
   legacy_estado     text,              -- el 'L' sin diccionario
   legacy_usuario    text,
-  discrepancia      numeric(14,3)
+  discrepancia      numeric(14,3)      -- suma de tiendas - global: es del artículo, no de la tienda
 );
 
+-- STOCK de la ficha es el total del artículo: se compara contra la SUMA de sus
+-- tiendas. Comparar cada tienda contra el total marcaba como descuadrado a todo
+-- artículo repartido en más de una sede (BLX1: 132 + 28 = 160 cuadra).
 INSERT INTO migration.legacy_stock_snapshot (
   legacy_code, variant_id, legacy_num_tienda, location_id,
-  stock_en_stocks, stock_en_articulo, stock_minimo, legacy_estado, legacy_usuario, discrepancia)
-SELECT btrim(st.codigo_articulo),
-       v.variant_id,
-       migration.to_int(st.num_tienda),
-       ml.location_id,
-       migration.to_numeric(st.stock),
-       s.stock,
-       s.stock_minimo,
-       migration.clean_text(st.estado),
-       migration.clean_text(st.modificado_por_usuario),
-       migration.to_numeric(st.stock) - s.stock
-FROM legacy.stocks st
-LEFT JOIN migration.variant_alias v ON v.legacy_code = btrim(st.codigo_articulo)
-LEFT JOIN migration.article_stage s ON s.legacy_code = btrim(st.codigo_articulo)
-LEFT JOIN migration.map_location ml ON ml.legacy_num = migration.to_int(st.num_tienda);
+  stock_en_stocks, stock_tiendas, stock_en_articulo, stock_minimo, legacy_estado, legacy_usuario, discrepancia)
+SELECT x.legacy_code, x.variant_id, x.num_tienda, x.location_id,
+       x.stock, x.suma, x.articulo, x.stock_minimo, x.estado, x.usuario,
+       x.suma - x.articulo
+FROM (
+  SELECT btrim(st.codigo_articulo) AS legacy_code,
+         v.variant_id,
+         migration.to_int(st.num_tienda) AS num_tienda,
+         ml.location_id,
+         migration.to_numeric(st.stock) AS stock,
+         sum(migration.to_numeric(st.stock)) OVER (PARTITION BY btrim(st.codigo_articulo)) AS suma,
+         s.stock AS articulo,
+         s.stock_minimo,
+         migration.clean_text(st.estado) AS estado,
+         migration.clean_text(st.modificado_por_usuario) AS usuario
+  FROM legacy.stocks st
+  LEFT JOIN migration.variant_alias v ON v.legacy_code = btrim(st.codigo_articulo)
+  LEFT JOIN migration.article_stage s ON s.legacy_code = btrim(st.codigo_articulo)
+  LEFT JOIN migration.map_location ml ON ml.legacy_num = migration.to_int(st.num_tienda)
+) x;
 
--- el descuadre que ya existe hoy y nadie puede explicar
+-- el descuadre que ya existe hoy y nadie puede explicar: uno por artículo
 SELECT migration.log_exception('error','inventory','saldo_en_conflicto', legacy_code,
-         format('STOCKS dice %s y almacen_articulo dice %s (diferencia %s): el conteo físico define el saldo real',
-                stock_en_stocks, stock_en_articulo, discrepancia),
-         jsonb_build_object('stocks', stock_en_stocks,
+         format('las tiendas suman %s y la ficha del artículo dice %s (diferencia %s): el conteo físico define el saldo real',
+                stock_tiendas, stock_en_articulo, discrepancia),
+         jsonb_build_object('suma_tiendas', stock_tiendas,
                             'articulo', stock_en_articulo,
-                            'diferencia', discrepancia,
-                            'tienda', legacy_num_tienda))
-FROM migration.legacy_stock_snapshot
+                            'diferencia', discrepancia))
+FROM (SELECT DISTINCT ON (legacy_code) * FROM migration.legacy_stock_snapshot ORDER BY legacy_code) a
 WHERE discrepancia IS NOT NULL AND discrepancia <> 0;
 
 SELECT migration.log_exception('warning','inventory','stock_sin_variante', legacy_code,

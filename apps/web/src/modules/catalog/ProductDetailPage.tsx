@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRightLeft, Boxes, FileClock, ImagePlus, Images, Layers, Plus, ScrollText, Star, Trash2, Upload } from 'lucide-react';
+import { ArrowRightLeft, Boxes, FileClock, ImageOff, ImagePlus, Images, Layers, Plus, ScrollText, Star, Trash2, Upload } from 'lucide-react';
 import { ProductKind, TrackingMode } from '@minitta/shared';
 import { api } from '@/lib/api';
 import { categoryLabel, useLookups } from '@/lib/lookups';
@@ -107,7 +107,16 @@ function ImagesTab({ product }: { product: ProductDetail }) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {product.media.map((m) => (
             <div key={m.id} className="group relative overflow-hidden rounded-xl border bg-muted/40">
-              <img src={m.url} alt={m.alt_text ?? ''} className="aspect-square w-full object-cover" />
+              {m.url.startsWith('pendiente') ? (
+                // foto del sistema viejo: la migración guarda la ruta, no el archivo
+                <div className="flex aspect-square w-full flex-col items-center justify-center gap-1 p-3 text-center">
+                  <ImageOff className="size-5 text-muted-foreground/60" />
+                  <span className="text-xs font-medium">Foto del sistema viejo</span>
+                  <Mono className="max-w-full truncate text-[11px] text-muted-foreground">{m.url.replace('pendiente://', '')}</Mono>
+                </div>
+              ) : (
+                <img src={m.url} alt={m.alt_text ?? ''} className="aspect-square w-full object-cover" />
+              )}
               {m.is_primary && (
                 <Badge tone="gold" className="absolute left-2 top-2 shadow-sm">
                   <Star className="fill-current" /> Principal
@@ -233,7 +242,8 @@ export function ProductDetailPage() {
     );
   }
 
-  const cover = p.media.find((m) => m.is_primary) ?? p.media[0];
+  const usable = p.media.filter((m) => !m.url.startsWith('pendiente'));
+  const cover = usable.find((m) => m.is_primary) ?? usable[0];
   const variant = p.variants.find((v) => v.id === variantId) ?? null;
   const stockOf = (vid: number) => p.stock.filter((s) => s.variant_id === vid);
   const totalStock = p.stock.reduce((a, s) => a + Number(s.on_hand), 0);

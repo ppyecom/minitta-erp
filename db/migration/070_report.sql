@@ -47,14 +47,19 @@ HAVING count(v.id) > 1
 ORDER BY count(v.id) DESC, p.code;
 
 -- el descuadre de stock que hay que resolver contando
+-- una fila por artículo: lo que suman sus tiendas contra lo que dice la ficha
 CREATE OR REPLACE VIEW migration.v_descuadres_stock AS
-SELECT ls.legacy_code, v.sku, l.code AS sede,
-       ls.stock_en_stocks, ls.stock_en_articulo, ls.discrepancia
+SELECT ls.legacy_code, max(v.sku) AS sku,
+       string_agg(COALESCE(l.code, 'tienda ' || ls.legacy_num_tienda) || ': ' || ls.stock_en_stocks::numeric(14,0), ', '
+                  ORDER BY l.code) AS por_tienda,
+       max(ls.stock_tiendas) AS suma_tiendas, max(ls.stock_en_articulo) AS stock_en_articulo,
+       max(ls.discrepancia) AS discrepancia
 FROM migration.legacy_stock_snapshot ls
 LEFT JOIN catalog.variant v ON v.id = ls.variant_id
 LEFT JOIN core.location l ON l.id = ls.location_id
-WHERE COALESCE(ls.discrepancia, 0) <> 0
-ORDER BY abs(ls.discrepancia) DESC;
+GROUP BY ls.legacy_code
+HAVING COALESCE(max(ls.discrepancia), 0) <> 0
+ORDER BY abs(max(ls.discrepancia)) DESC;
 
 -- -----------------------------------------------------------------------------
 -- resumen en pantalla
@@ -96,8 +101,8 @@ SELECT rule, casos, ejemplo FROM migration.v_exception_summary WHERE severity = 
 SELECT legacy_code, sku, raw_name, peso, precio, motivos FROM migration.v_cuarentena LIMIT 15;
 
 \echo ''
-\echo '--- descuadres de stock entre las dos tablas del legacy'
-SELECT legacy_code, sede, stock_en_stocks, stock_en_articulo, discrepancia
+\echo '--- descuadres de stock: lo que suman las tiendas vs. lo que dice la ficha del artículo'
+SELECT legacy_code, por_tienda, suma_tiendas, stock_en_articulo, discrepancia
 FROM migration.v_descuadres_stock LIMIT 15;
 
 \echo ''

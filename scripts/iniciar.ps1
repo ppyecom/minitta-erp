@@ -27,6 +27,7 @@ Write-Host ''
 
 # 1. base de datos
 & (Join-Path $PSScriptRoot 'pg.ps1') start
+if ($LASTEXITCODE -ne 0) { exit 1 }
 
 # 2. dependencias (primera vez o después de un git pull con paquetes nuevos)
 if (-not (Test-Path (Join-Path $root 'node_modules'))) {
