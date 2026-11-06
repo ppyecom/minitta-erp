@@ -16,8 +16,10 @@ inventario. El diagnóstico completo, con ejemplos de las filas reales, está en
 
 ```
 db/                     esquema PostgreSQL (migraciones 001..007 + prueba de humo)
+db/apply.ps1 .sh        aplica el esquema sobre una base
 db/migration/           migración desde el ERP viejo (SQL Server)
 docs/                   diagnóstico, modelo, decisiones, cobertura y plan de migración
+CLAUDE.md               las reglas que el esquema impone y no hay que romper
 ```
 
 Motor: **PostgreSQL 16+** (verificado en 18.1), UTF-8, cuatro esquemas:
@@ -34,21 +36,34 @@ Motor: **PostgreSQL 16+** (verificado en 18.1), UTF-8, cuatro esquemas:
 cp .env.example .env
 ```
 
-```bash
-createdb -E UTF8 minitta_erp
-```
-
-```bash
-for f in db/00*.sql; do psql -v ON_ERROR_STOP=1 -d minitta_erp -f "$f"; done
-```
+Después, con la contraseña de Postgres en el entorno, un solo comando crea la base (si no
+existe, con `ENCODING 'UTF8'`) y aplica `db/0*.sql` en orden, parando en el primer error.
 
 En Windows con PowerShell:
 
 ```powershell
-Get-ChildItem db\0*.sql | Sort-Object Name | ForEach-Object { psql -v ON_ERROR_STOP=1 -d minitta_erp -f $_.FullName }
+$env:PGPASSWORD = "..."; .\db\apply.ps1 minitta_erp -Port 5433
 ```
 
+En Linux o macOS:
+
+```bash
+export PGPASSWORD=...; ./db/apply.sh minitta_erp
+```
+
+Opciones: `-SmokeTest` / `--smoke-test` corre la prueba de humo al final, `-Recreate` /
+`--recreate` borra la base y la vuelve a crear desde cero, `-Drop` / `--drop` la elimina al
+terminar (para una base de prueba desechable). El servidor se elige con `-PgHost`/`-Port`/
+`-User` o con las variables `PGHOST`/`PGPORT`/`PGUSER`.
+
 ## Verificar que funciona
+
+```powershell
+.\db\apply.ps1 minitta_erp_test -Port 5433 -Recreate -SmokeTest -Drop
+```
+
+Eso crea una base limpia, aplica el esquema, corre `db/999_smoke_test.sql` y la borra.
+Sobre una base que ya está aplicada, la prueba de humo sola:
 
 ```bash
 psql -v ON_ERROR_STOP=1 -d minitta_erp -f db/999_smoke_test.sql
@@ -83,6 +98,9 @@ SET LOCAL app.client_info = 'caja-02 / T-1';
 
 Sin `app.user_id`, los movimientos sin `created_by` explícito se rechazan y la auditoría
 queda sin autor.
+
+Las reglas completas, con las funciones que la app debe llamar y las convenciones del
+esquema, están en [CLAUDE.md](CLAUDE.md).
 
 ---
 
