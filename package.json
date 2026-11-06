@@ -1,13 +1,29 @@
 {
   "name": "minitta-erp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "ERP de Minitta Joyería — base de datos v2 (productos, stock, sedes)",
+  "description": "ERP de Minitta Joyería: base de datos v2, API (NestJS) e interfaz (React)",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
+    "dev": "npm run build -w @minitta/shared && concurrently -k -n shared,api,web -c gray,cyan,magenta \"npm run dev -w @minitta/shared\" \"npm run dev -w @minitta/api\" \"npm run dev -w @minitta/web\"",
+    "build": "npm run build -w @minitta/shared && npm run build -w @minitta/api && npm run build -w @minitta/web",
+    "start": "npm run start -w @minitta/api",
+    "typecheck": "npm run build -w @minitta/shared && npm run typecheck -w @minitta/api && npm run typecheck -w @minitta/web",
+    "db:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pg.ps1 start",
+    "db:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pg.ps1 stop",
+    "db:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pg.ps1 status",
+    "db:types": "npm run db:types -w @minitta/api",
     "export:legacy": "node db/migration/021_export_from_sqlserver.js",
     "check:legacy": "node db/migration/021_export_from_sqlserver.js --check"
   },
   "dependencies": {
     "mssql": "^12.2.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "typescript": "~5.8.3"
   }
 }

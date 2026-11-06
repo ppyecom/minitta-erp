@@ -188,6 +188,29 @@ UPDATE inventory.stock SET min_quantity = 10
 SELECT sku, location_code, on_hand, min_quantity, suggested_qty FROM inventory.v_reorder;
 
 -- -----------------------------------------------------------------------------
+-- CASO 6b — transferencia T-1 → T-7 con faltante: se envían 10, llegan 8
+-- -----------------------------------------------------------------------------
+INSERT INTO inventory.transfer (code, from_location_id, to_location_id, purpose)
+VALUES ('TR-SMOKE-1',
+        (SELECT id FROM core.location WHERE code='T-1'),
+        (SELECT id FROM core.location WHERE code='T-7'), 'restock');
+INSERT INTO inventory.transfer_line (transfer_id, variant_id, quantity_sent)
+VALUES ((SELECT id FROM inventory.transfer WHERE code='TR-SMOKE-1'),
+        (SELECT id FROM catalog.variant WHERE sku='LLAV-MIN-STD'), 10);
+
+SELECT inventory.send_transfer((SELECT id FROM inventory.transfer WHERE code='TR-SMOKE-1'), 1);
+UPDATE inventory.transfer_line SET quantity_received = 8
+ WHERE transfer_id = (SELECT id FROM inventory.transfer WHERE code='TR-SMOKE-1');
+SELECT inventory.receive_transfer((SELECT id FROM inventory.transfer WHERE code='TR-SMOKE-1'), 1);
+
+\echo '--- caso 6b: transferencia recibida parcial; los 2 que faltan vuelven a T-1 como ajuste'
+SELECT t.code, t.status, a.location_code, a.on_hand, a.in_transit
+FROM inventory.transfer t
+CROSS JOIN inventory.v_availability a
+WHERE t.code = 'TR-SMOKE-1' AND a.sku = 'LLAV-MIN-STD'
+ORDER BY a.location_code;
+
+-- -----------------------------------------------------------------------------
 -- CASO 7 — integridad: el saldo guardado SIEMPRE coincide con los movimientos
 -- -----------------------------------------------------------------------------
 \echo '--- caso 7: filas descuadradas (debe salir 0)'

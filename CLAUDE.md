@@ -74,17 +74,33 @@ al arrancar.
 
 ## 6. Migraciones
 
-- Son **archivos numerados en `db/`** (`001_core.sql` .. `007_seed_reference.sql`).
+- Son **archivos numerados en `db/`** (`001_core.sql` .. `008_fix_receive_transfer.sql`).
 - Se **agregan**: un archivo ya aplicado no se edita nunca. Un cambio al esquema es un
   `008_...sql` nuevo.
 - Se aplican con [`db/apply.ps1`](db/apply.ps1) (Windows) o [`db/apply.sh`](db/apply.sh), no a
   mano. Ambos aplican `db/0*.sql` en orden con `ON_ERROR_STOP=1`.
-- `db/999_smoke_test.sql` corre en una sola transacción y debe salir con **exit 0**: 8 casos
-  OK y las 6 reglas de integridad en `RECHAZADO`.
+- `db/999_smoke_test.sql` corre en una sola transacción y debe salir con **exit 0**: los casos
+  1–8 (más el 6b, transferencia con faltante) OK y las 6 reglas de integridad en `RECHAZADO`.
 - Los scripts de migración desde el legacy viven en **`db/migration/`** y son otra cosa:
   no forman parte del esquema y se corren una sola vez, con `db/migration/run.ps1`.
 
-## 7. Nunca commitear
+## 7. La aplicación (apps/api, apps/web)
+
+- **Toda escritura pasa por `DbService.tx(user, fn)`**: abre la transacción y fija
+  `app.user_id`/`app.client_info` con `set_config(..., true)`. No escribir con `dbs.db` directo.
+- El usuario llega en la cabecera `x-user-id` (decorador `@CurrentUser()`). Cuando exista el
+  login, se reemplaza ahí y en `apps/web/src/lib/session.tsx`, sin tocar los controladores.
+- Las validaciones de entrada viven en `packages/shared/src/schemas.ts` y se aplican con
+  `@Body(zod(schema))`. Los enums con su etiqueta en español, en `packages/shared/src/enums.ts`:
+  si una migración agrega un valor a un `CREATE TYPE`, se agrega ahí también.
+- `pg` devuelve `bigint` y `numeric` como `number` (ver `db.service.ts`); `npm run db:types`
+  regenera los tipos y los ajusta a eso. Correrlo después de cada migración.
+- Precios y costos **no se sobrescriben**: se cierra el vigente (`valid_to = now()`) y se
+  inserta otro. El historial es parte del modelo.
+- Un módulo nuevo es una carpeta en `apps/api/src/modules/<x>` y otra en
+  `apps/web/src/modules/<x>`; no se mezclan dominios en el mismo controlador.
+
+## 8. Nunca commitear
 
 - `.env` (hay `.env.example` con las variables, sin valores).
 - CSV, XLSX o `.bak` con datos del ERP viejo, ni exports, ni capturas de la base de

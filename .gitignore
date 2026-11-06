@@ -11,6 +11,11 @@ db/migration/.report/
 # node
 node_modules/
 npm-debug.log*
+dist/
+*.tsbuildinfo
+
+# imágenes subidas desde el ERP (locales, no van al repo)
+uploads/
 
 # datos del ERP viejo (exports, planillas)
 *.csv
