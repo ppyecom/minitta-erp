@@ -8,6 +8,8 @@
 #   ./run.ps1 -SourceDir "C:\Users\piero\OneDrive\Desktop\productos"
 #   ./run.ps1 -SourceDir "..." -Database minitta_erp -KeepDatabase
 #   ./run.ps1 -SourceDir "..." -SkipPrepare          # reusa los CSV ya normalizados
+#
+# OJO: el paso 2 BORRA la base de destino. Si ya tiene datos, se corta salvo -Force.
 # =============================================================================
 param(
   [Parameter(Mandatory = $true)][string]$SourceDir,
@@ -18,6 +20,7 @@ param(
   [string]$PsqlPath = '',
   [switch]$KeepDatabase,
   [switch]$SkipPrepare,
+  [switch]$Force,          # permite pisar una base que ya tiene datos cargados
   [string]$ReportDir = (Join-Path $PSScriptRoot '.report')
 )
 
@@ -75,6 +78,29 @@ if (-not $SkipPrepare) {
 # --- 2. base limpia ---------------------------------------------------------
 Write-Host ''
 Write-Host '[2/6] Creando base limpia...' -ForegroundColor Yellow
+
+# ESTE PASO BORRA LA BASE DE DESTINO. Si ya tiene datos cargados -productos que
+# el personal completo, movimientos de stock, ordenes de taller- volver a correr
+# la migracion los destruye. La carga es UNA SOLA, antes de que nadie trabaje.
+$exists = (& $psql -h $PgHost -p $Port -U $User -d postgres -tAc `
+           "SELECT 1 FROM pg_database WHERE datname = '$Database'").Trim()
+if ($exists -eq '1' -and -not $Force) {
+  $usada = (& $psql -h $PgHost -p $Port -U $User -d $Database -tAc @"
+SELECT COALESCE((SELECT count(*) FROM catalog.product), 0)
+     + COALESCE((SELECT count(*) FROM inventory.movement), 0)
+     + COALESCE((SELECT count(*) FROM core.app_user WHERE NOT is_system), 0)
+"@ 2>$null)
+  if ($usada -and ([int]($usada.Trim()) -gt 0)) {
+    Write-Host ''
+    Write-Host "La base '$Database' ya tiene datos ($($usada.Trim()) registros entre productos," -ForegroundColor Red
+    Write-Host 'movimientos y usuarios). Correr la migracion la BORRA entera.' -ForegroundColor Red
+    Write-Host ''
+    Write-Host 'La carga del legacy es una sola, antes de que el personal empiece a trabajar.' -ForegroundColor Yellow
+    Write-Host 'Si igual queres pisarla, agrega -Force (y antes sacale un backup).' -ForegroundColor Yellow
+    throw "Cancelado: '$Database' tiene datos y no se paso -Force."
+  }
+}
+
 & $psql -h $PgHost -p $Port -U $User -d postgres -c "DROP DATABASE IF EXISTS $Database;" | Out-Null
 & $psql -h $PgHost -p $Port -U $User -d postgres -c "CREATE DATABASE $Database ENCODING 'UTF8';" | Out-Null
 

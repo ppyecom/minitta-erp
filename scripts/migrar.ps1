@@ -96,7 +96,9 @@ $runArgs = @{
   User        = $pgUser
   PsqlPath    = $psql
 }
-if ($Final) { $runArgs.Database = $pgDb; $runArgs.KeepDatabase = $true }
+# -Force: run.ps1 se niega a pisar una base con datos, y aca ya se confirmo
+# escribiendo MIGRAR con el aviso en rojo.
+if ($Final) { $runArgs.Database = $pgDb; $runArgs.KeepDatabase = $true; $runArgs.Force = $true }
 & (Join-Path $migDir 'run.ps1') @runArgs
 
 Write-Host ''

@@ -3,7 +3,7 @@
 Este archivo no resume el proyecto (para eso están el [README](README.md) y `docs/01`..`docs/06`).
 Fija las reglas que el esquema **ya impone** y que es fácil romper desde la aplicación.
 
-Base: PostgreSQL 16+ (verificado en 18.1). Esquemas `core`, `catalog`, `pricing`, `inventory`.
+Base: PostgreSQL 16+ (verificado en 18.1). Esquemas `core`, `catalog`, `pricing`, `inventory`, `ops`.
 
 ---
 
@@ -74,17 +74,40 @@ al arrancar.
 
 ## 6. Migraciones
 
-- Son **archivos numerados en `db/`** (`001_core.sql` .. `008_fix_receive_transfer.sql`).
+- Son **archivos numerados en `db/`** (`001_core.sql` .. `011_pendientes.sql`).
 - Se **agregan**: un archivo ya aplicado no se edita nunca. Un cambio al esquema es un
   `008_...sql` nuevo.
 - Se aplican con [`db/apply.ps1`](db/apply.ps1) (Windows) o [`db/apply.sh`](db/apply.sh), no a
   mano. Ambos aplican `db/0*.sql` en orden con `ON_ERROR_STOP=1`.
-- `db/999_smoke_test.sql` corre en una sola transacción y debe salir con **exit 0**: los casos
-  1–8 (más el 6b, transferencia con faltante) OK y las 6 reglas de integridad en `RECHAZADO`.
+- Las pruebas de humo son `db/99*.sql` y las corre `--smoke-test` / `-SmokeTest`, todas, en
+  orden. Cada una va en una sola transacción y debe salir con **exit 0**:
+  `997_smoke_pendientes.sql` (lista de trabajo), `998_smoke_ops.sql` (procesos, 7 reglas
+  en `RECHAZADO`) y `999_smoke_test.sql` (inventario, casos 1–8 más el 6b y 6 reglas en
+  `RECHAZADO`).
+  Las dos terminan en `ROLLBACK`: verifican y no dejan datos.
 - Los scripts de migración desde el legacy viven en **`db/migration/`** y son otra cosa:
   no forman parte del esquema y se corren una sola vez, con `db/migration/run.ps1`.
+  Ese script **borra la base de destino**: se corta solo si ya tiene datos, salvo `-Force`.
+  La carga del legacy va antes de que el personal empiece a trabajar, nunca después
+  (ver [docs/09](docs/09-carga-unica.md)).
 
-## 7. La aplicación (apps/api, apps/web)
+## 7. Los procesos (`ops`): lo que no es nuestro no es stock
+
+Ver [docs/08](docs/08-procesos.md). Tres reglas que la aplicación no puede saltear:
+
+- **`ops.custody_item` no tiene `variant_id` y eso es deliberado.** Una pieza de un cliente
+  no puede entrar a `inventory.movement` porque no hay columna donde ponerla. No agregarla:
+  es la garantía estructural de que lo ajeno no se vende por error.
+- **`ops.close_work_order()` es la única forma de cerrar una orden de taller.** Valida que
+  `gramos de entrada = gramos de salida + merma`, dentro de `ops.weight_tolerance_g()`.
+  Un `UPDATE ops.work_order SET status='closed'` saltea el control: no hacerlo.
+- **`ops.custody_event` y `ops.layaway_payment` son append-only.** Un eslabón mal cargado se
+  corrige con otro eslabón, igual que el kardex.
+
+La merma **recuperada** (`is_recovered`) cuadra el peso pero no cuenta contra el estándar de
+`ops.loss_standard`: ese oro sigue siendo nuestro.
+
+## 8. La aplicación (apps/api, apps/web)
 
 - **Toda escritura pasa por `DbService.tx(user, fn)`**: abre la transacción y fija
   `app.user_id`/`app.client_info` con `set_config(..., true)`. No escribir con `dbs.db` directo.
@@ -99,8 +122,11 @@ al arrancar.
   inserta otro. El historial es parte del modelo.
 - Un módulo nuevo es una carpeta en `apps/api/src/modules/<x>` y otra en
   `apps/web/src/modules/<x>`; no se mezclan dominios en el mismo controlador.
+- Los procesos (`ops`) escriben **solo** por las funciones del esquema
+  (`ops.start_work_order`, `ops.close_work_order`, `ops.send_consignment`…). Un `UPDATE`
+  directo sobre `ops.work_order.status` saltea el cuadre de gramos.
 
-## 8. Nunca commitear
+## 9. Nunca commitear
 
 - `.env` (hay `.env.example` con las variables, sin valores).
 - CSV, XLSX o `.bak` con datos del ERP viejo, ni exports, ni capturas de la base de

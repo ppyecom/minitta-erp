@@ -79,13 +79,24 @@ Pide escribir `MIGRAR`, **borra y vuelve a crear** la base del ERP y la llena co
 catálogo, las sedes y los precios del sistema viejo. Lo que se haya cargado a mano en el ERP
 antes de este paso se pierde: hasta acá, usar el ERP solo para practicar.
 
-## 6. Arrancar el stock
+## 6. Completar lo que el sistema viejo no traía bien
+
+En **Catálogo › Pendientes** está la lista de trabajo: cada artículo que entró sin peso,
+sin precio, sin material, sin categoría o sin foto, y los que no se pueden vender hasta
+completarlos. Los contadores de arriba sirven para repartir el trabajo entre la gente de
+tienda.
+
+No hay que marcar nada como hecho: la fila desaparece sola cuando el dato se carga.
+
+## 7. Arrancar el stock
 
 La migración **no trae saldos** (los del sistema viejo están descuadrados, ver
 [06](06-plan-de-migracion.md)). Abrir el ERP con `Iniciar ERP.cmd` y, en
 **Inventario físico**, abrir el conteo de apertura de cada sede: el saldo viejo aparece como
 referencia y lo contado se vuelve el stock inicial, firmado por quien contó. Las piezas de oro
 o con gemas se registran en **Piezas**, una por una, con su peso real.
+
+El detalle del corte, paso por paso, está en [09 — La carga única](09-carga-unica.md).
 
 ## Antes de la migración
 

@@ -205,6 +205,8 @@ regla.
 | [05 — Cobertura de datos](docs/05-cobertura-de-datos.md) | las 50 columnas del legacy una por una, y los 40 datos que hoy no están en ninguna tabla |
 | [06 — Plan de migración](docs/06-plan-de-migracion.md) | cómo correrla, qué decide el script, qué falta decidir |
 | [07 — Instalar y migrar](docs/07-instalar-y-migrar.md) | paso a paso en la PC que llega al servidor viejo |
+| [08 — Procesos](docs/08-procesos.md) | custodia, taller con cuadre de gramos, consignación, apartados |
+| [09 — La carga única](docs/09-carga-unica.md) | el corte del ERP viejo al nuevo, paso a paso |
 
 ---
 
