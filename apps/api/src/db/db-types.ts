@@ -65,6 +65,20 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type Numeric = ColumnType<number, number | string, number | string>;
 
+export type OpsConsignmentStatus = "active" | "cancelled" | "closed" | "draft" | "settling";
+
+export type OpsCustodyEventKind = "abandoned" | "delivered" | "from_workshop" | "moved" | "note" | "quoted" | "received" | "to_workshop" | "weighed";
+
+export type OpsCustodyStatus = "abandoned" | "delivered" | "in_workshop" | "ready" | "received";
+
+export type OpsPaymentMethod = "card" | "cash" | "other" | "transfer" | "wallet";
+
+export type OpsWorkItemSource = "custody" | "material" | "stock";
+
+export type OpsWorkOrderKind = "assembly" | "engraving" | "melt" | "other" | "polish" | "production" | "repair" | "resize" | "setting";
+
+export type OpsWorkOrderStatus = "cancelled" | "closed" | "draft" | "finished" | "in_progress" | "open";
+
 export type PricingCostSource = "calculated" | "manual" | "migration" | "purchase";
 
 export type PricingPriceMode = "by_margin" | "by_weight" | "manual";
@@ -667,12 +681,17 @@ export interface InventoryTransfer {
   carrier: string | null;
   code: string;
   created_at: Generated<Timestamp>;
+  /**
+   * Para purpose = exhibition / repair: cuándo se comprometió el retorno.
+   */
+  due_back_on: Timestamp | null;
   from_location_id: Int8;
   id: Generated<Int8>;
   notes: string | null;
   purpose: Generated<InventoryTransferPurpose>;
   received_at: Timestamp | null;
   received_by: Int8 | null;
+  responsible_user_id: Int8 | null;
   sent_at: Timestamp | null;
   sent_by: Int8 | null;
   status: Generated<InventoryTransferStatus>;
@@ -758,6 +777,261 @@ export interface InventoryVStockIntegrity {
   location_id: Int8 | null;
   real_on_hand: Numeric | null;
   variant_id: Int8 | null;
+}
+
+export interface OpsConsignment {
+  closed_at: Timestamp | null;
+  code: string;
+  commission_pct: Generated<Numeric>;
+  created_at: Generated<Timestamp>;
+  created_by: Int8;
+  currency_code: string;
+  due_on: Timestamp | null;
+  from_location_id: Int8;
+  id: Generated<Int8>;
+  notes: string | null;
+  partner_contact: string | null;
+  partner_location_id: Int8;
+  partner_name: string;
+  responsible_user_id: Int8 | null;
+  started_on: Generated<Timestamp>;
+  status: Generated<OpsConsignmentStatus>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface OpsConsignmentLine {
+  consignment_id: Int8;
+  id: Generated<Int8>;
+  notes: string | null;
+  quantity_returned: Generated<Numeric>;
+  quantity_sent: Numeric;
+  quantity_sold: Generated<Numeric>;
+  serial_id: Int8 | null;
+  unit_price: Numeric | null;
+  variant_id: Int8;
+}
+
+export interface OpsConsignmentSettlement {
+  commission_amount: Numeric;
+  consignment_id: Int8;
+  currency_code: string;
+  gross_amount: Numeric;
+  id: Generated<Int8>;
+  net_amount: Numeric;
+  notes: string | null;
+  period_from: Timestamp;
+  period_to: Timestamp;
+  settled_at: Generated<Timestamp>;
+  settled_by: Int8;
+}
+
+export interface OpsCustodyEvent {
+  created_at: Generated<Timestamp>;
+  created_by: Int8;
+  custody_item_id: Int8;
+  from_location_id: Int8 | null;
+  from_user_id: Int8 | null;
+  id: Generated<Int8>;
+  kind: OpsCustodyEventKind;
+  notes: string | null;
+  occurred_at: Generated<Timestamp>;
+  to_location_id: Int8 | null;
+  to_user_id: Int8 | null;
+  weight_g: Numeric | null;
+  work_order_id: Int8 | null;
+}
+
+export interface OpsCustodyItem {
+  code: string;
+  condition_notes: string | null;
+  created_at: Generated<Timestamp>;
+  customer_document: string | null;
+  customer_name: string;
+  customer_phone: string | null;
+  delivered_at: Timestamp | null;
+  delivered_by: Int8 | null;
+  delivered_to: string | null;
+  delivered_weight_g: Numeric | null;
+  description: string;
+  id: Generated<Int8>;
+  location_id: Int8;
+  material_id: Int8 | null;
+  notes: string | null;
+  promised_on: Timestamp | null;
+  quoted_amount: Numeric | null;
+  quoted_currency: string | null;
+  received_at: Generated<Timestamp>;
+  received_by: Int8;
+  received_weight_g: Numeric;
+  requested_service: string;
+  status: Generated<OpsCustodyStatus>;
+  stone_notes: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface OpsLayawayPayment {
+  amount: Numeric;
+  created_at: Generated<Timestamp>;
+  currency_code: string;
+  id: Generated<Int8>;
+  method: Generated<OpsPaymentMethod>;
+  notes: string | null;
+  paid_at: Generated<Timestamp>;
+  receipt_no: string | null;
+  received_by: Int8;
+  reservation_id: Int8;
+}
+
+export interface OpsLossStandard {
+  id: Generated<Int8>;
+  is_active: Generated<boolean>;
+  material_id: Int8 | null;
+  max_loss_pct: Numeric;
+  notes: string | null;
+  work_order_kind: OpsWorkOrderKind;
+}
+
+export interface OpsVCustodyLedger {
+  code: string | null;
+  customer_name: string | null;
+  event: OpsCustodyEventKind | null;
+  from_location: string | null;
+  notes: string | null;
+  occurred_at: Timestamp | null;
+  registered_by: string | null;
+  status: OpsCustodyStatus | null;
+  to_location: string | null;
+  weight_diff_g: Numeric | null;
+  weight_g: Numeric | null;
+  work_order: string | null;
+}
+
+export interface OpsVLayawayBalance {
+  customer_name: string | null;
+  customer_phone: string | null;
+  deposit: Numeric | null;
+  expires_at: Timestamp | null;
+  last_payment_at: Timestamp | null;
+  location: string | null;
+  paid: Numeric | null;
+  payment_count: Int8 | null;
+  product_name: string | null;
+  quantity: Numeric | null;
+  reservation_id: Int8 | null;
+  reserved_at: Timestamp | null;
+  sku: string | null;
+  status: InventoryReservationStatus | null;
+}
+
+export interface OpsVLossSummary {
+  input_g: Numeric | null;
+  kind: OpsWorkOrderKind | null;
+  loss_g: Numeric | null;
+  loss_pct: Numeric | null;
+  max_loss_pct: Numeric | null;
+  orders: Int8 | null;
+}
+
+export interface OpsVOverdue {
+  days_out: number | null;
+  detail: string | null;
+  due_on: Timestamp | null;
+  is_overdue: boolean | null;
+  kind: string | null;
+  location: string | null;
+  reference: string | null;
+  responsible: string | null;
+  since: Timestamp | null;
+}
+
+export interface OpsVPiecesOut {
+  days_out: number | null;
+  detail: string | null;
+  due_on: Timestamp | null;
+  is_overdue: boolean | null;
+  kind: string | null;
+  location: string | null;
+  reference: string | null;
+  responsible: string | null;
+  since: Timestamp | null;
+}
+
+export interface OpsVWorkOrderBalance {
+  balanced: boolean | null;
+  code: string | null;
+  diff_g: Numeric | null;
+  id: Int8 | null;
+  input_g: Numeric | null;
+  kind: OpsWorkOrderKind | null;
+  loss_g: Numeric | null;
+  loss_pct: Numeric | null;
+  max_loss_pct: Numeric | null;
+  output_g: Numeric | null;
+  recovered_g: Numeric | null;
+  status: OpsWorkOrderStatus | null;
+}
+
+export interface OpsWorkOrder {
+  assigned_supplier_id: Int8 | null;
+  assigned_user_id: Int8 | null;
+  closed_at: Timestamp | null;
+  code: string;
+  created_at: Generated<Timestamp>;
+  created_by: Int8;
+  custody_item_id: Int8 | null;
+  finished_at: Timestamp | null;
+  id: Generated<Int8>;
+  kind: OpsWorkOrderKind;
+  labor_cost: Numeric | null;
+  labor_currency: string | null;
+  location_id: Int8;
+  notes: string | null;
+  opened_at: Generated<Timestamp>;
+  promised_on: Timestamp | null;
+  started_at: Timestamp | null;
+  status: Generated<OpsWorkOrderStatus>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface OpsWorkOrderInput {
+  created_at: Generated<Timestamp>;
+  custody_item_id: Int8 | null;
+  from_location_id: Int8 | null;
+  id: Generated<Int8>;
+  material_id: Int8 | null;
+  notes: string | null;
+  quantity: Generated<Numeric>;
+  serial_id: Int8 | null;
+  source: OpsWorkItemSource;
+  variant_id: Int8 | null;
+  weight_g: Numeric;
+  work_order_id: Int8;
+}
+
+export interface OpsWorkOrderLoss {
+  approved_at: Timestamp | null;
+  approved_by: Int8 | null;
+  created_at: Generated<Timestamp>;
+  created_by: Int8;
+  id: Generated<Int8>;
+  is_recovered: Generated<boolean>;
+  material_id: Int8 | null;
+  reason: string;
+  weight_g: Numeric;
+  work_order_id: Int8;
+}
+
+export interface OpsWorkOrderOutput {
+  created_at: Generated<Timestamp>;
+  custody_item_id: Int8 | null;
+  id: Generated<Int8>;
+  notes: string | null;
+  quantity: Generated<Numeric>;
+  serial_id: Int8 | null;
+  to_location_id: Int8 | null;
+  variant_id: Int8 | null;
+  weight_g: Numeric;
+  work_order_id: Int8;
 }
 
 export interface PricingExchangeRate {
@@ -911,6 +1185,23 @@ export interface DB {
   "inventory.v_reorder": InventoryVReorder;
   "inventory.v_serial_tracking": InventoryVSerialTracking;
   "inventory.v_stock_integrity": InventoryVStockIntegrity;
+  "ops.consignment": OpsConsignment;
+  "ops.consignment_line": OpsConsignmentLine;
+  "ops.consignment_settlement": OpsConsignmentSettlement;
+  "ops.custody_event": OpsCustodyEvent;
+  "ops.custody_item": OpsCustodyItem;
+  "ops.layaway_payment": OpsLayawayPayment;
+  "ops.loss_standard": OpsLossStandard;
+  "ops.v_custody_ledger": OpsVCustodyLedger;
+  "ops.v_layaway_balance": OpsVLayawayBalance;
+  "ops.v_loss_summary": OpsVLossSummary;
+  "ops.v_overdue": OpsVOverdue;
+  "ops.v_pieces_out": OpsVPiecesOut;
+  "ops.v_work_order_balance": OpsVWorkOrderBalance;
+  "ops.work_order": OpsWorkOrder;
+  "ops.work_order_input": OpsWorkOrderInput;
+  "ops.work_order_loss": OpsWorkOrderLoss;
+  "ops.work_order_output": OpsWorkOrderOutput;
   "pricing.exchange_rate": PricingExchangeRate;
   "pricing.labor_rate": PricingLaborRate;
   "pricing.metal_rate": PricingMetalRate;

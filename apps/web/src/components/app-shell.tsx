@@ -6,8 +6,11 @@ import {
   Boxes,
   ChevronsUpDown,
   ClipboardCheck,
+  ClipboardList,
   Coins,
   Gem,
+  HandCoins,
+  Hammer,
   History,
   LayoutDashboard,
   ListTree,
@@ -15,10 +18,13 @@ import {
   Menu as MenuIcon,
   Moon,
   Package,
+  PackageSearch,
   ScanBarcode,
+  Store,
   Sun,
   UserRound,
   Users,
+  Wallet,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -39,6 +45,7 @@ const NAV: { title?: string; items: NavItem[] }[] = [
     title: 'Catálogo',
     items: [
       { to: '/catalogo/productos', label: 'Productos', icon: Gem },
+      { to: '/catalogo/pendientes', label: 'Pendientes', icon: ClipboardList },
       { to: '/catalogo/maestros', label: 'Maestros', icon: ListTree },
     ],
   },
@@ -52,6 +59,16 @@ const NAV: { title?: string; items: NavItem[] }[] = [
       { to: '/inventario/conteos', label: 'Inventario físico', icon: ClipboardCheck },
     ],
   },
+  {
+    title: 'Procesos',
+    items: [
+      { to: '/procesos/afuera', label: 'Dónde está todo', icon: PackageSearch },
+      { to: '/procesos/custodia', label: 'Custodia', icon: HandCoins },
+      { to: '/procesos/taller', label: 'Taller', icon: Hammer },
+      { to: '/procesos/consignaciones', label: 'Consignaciones', icon: Store },
+      { to: '/procesos/apartados', label: 'Apartados', icon: Wallet },
+    ],
+  },
   { title: 'Precios', items: [{ to: '/precios', label: 'Listas y cotizaciones', icon: Coins }] },
   {
     title: 'Ajustes',
@@ -63,7 +80,7 @@ const NAV: { title?: string; items: NavItem[] }[] = [
 ];
 
 // módulos que vienen, para que se vea el camino (deshabilitados)
-const SOON = ['Ventas', 'Compras', 'Caja', 'Clientes', 'Taller'];
+const SOON = ['Ventas', 'Compras', 'Caja', 'Clientes'];
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (

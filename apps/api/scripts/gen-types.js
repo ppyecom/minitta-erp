@@ -16,7 +16,7 @@ execFileSync(
     require.resolve('kysely-codegen/dist/cli/bin.js'),
     '--dialect=postgres',
     '--out-file=src/db/db-types.ts',
-    '--include-pattern=(core|catalog|pricing|inventory).*',
+    '--include-pattern=(core|catalog|pricing|inventory|ops).*',
     '--numeric-parser=number',
   ],
   { stdio: 'inherit', cwd: path.resolve(__dirname, '..'), env: { ...process.env, DATABASE_URL: url } },

@@ -191,3 +191,80 @@ export const ReservationStatus = labels({
   cancelled: 'Anulado',
   expired: 'Vencido',
 });
+
+// ---- procesos (esquema ops) -------------------------------------------------
+export const CustodyStatus = labels({
+  received: 'Recibida',
+  in_workshop: 'En taller',
+  ready: 'Lista para entregar',
+  delivered: 'Entregada',
+  abandoned: 'Abandonada',
+});
+
+export const CustodyEventKind = labels({
+  received: 'Recibida',
+  moved: 'Movida',
+  to_workshop: 'Enviada al taller',
+  from_workshop: 'Vuelta del taller',
+  weighed: 'Pesada',
+  quoted: 'Cotizada',
+  delivered: 'Entregada',
+  abandoned: 'Abandonada',
+  note: 'Nota',
+});
+
+export const WorkOrderKind = labels({
+  repair: 'Reparación',
+  resize: 'Ajuste de talla',
+  polish: 'Pulido o baño',
+  setting: 'Engaste',
+  engraving: 'Grabado',
+  production: 'Fabricación',
+  melt: 'Fundición',
+  assembly: 'Armado',
+  other: 'Otro',
+});
+
+export const WorkOrderStatus = labels({
+  draft: 'Borrador',
+  open: 'Abierta',
+  in_progress: 'En curso',
+  finished: 'Terminada',
+  closed: 'Cerrada',
+  cancelled: 'Anulada',
+});
+
+export const WorkItemSource = labels({
+  stock: 'Del inventario',
+  custody: 'Del cliente (custodia)',
+  material: 'Material suelto',
+});
+
+export const ConsignmentStatus = labels({
+  draft: 'Borrador',
+  active: 'Activa',
+  settling: 'En liquidación',
+  closed: 'Cerrada',
+  cancelled: 'Anulada',
+});
+
+export const PaymentMethod = labels({
+  cash: 'Efectivo',
+  card: 'Tarjeta',
+  transfer: 'Transferencia',
+  wallet: 'Yape / Plin',
+  other: 'Otro',
+});
+
+// Motivos por los que un artículo queda pendiente de completar.
+// No son un CREATE TYPE: los arma catalog.v_pending a partir del dato de hoy.
+export const PendingReason = labels({
+  sin_peso: 'Falta el peso',
+  sin_precio: 'Falta el precio',
+  sin_material: 'Falta el material',
+  sin_categoria: 'Falta la categoría',
+  sin_foto: 'Falta la foto',
+  medida_sin_interpretar: 'Medida sin interpretar',
+  peso_vs_precio: 'El peso no cierra con el precio',
+  sin_revisar: 'Sin revisar',
+});

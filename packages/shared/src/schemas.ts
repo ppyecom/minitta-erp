@@ -1,6 +1,7 @@
 // Validaciones de entrada: las usa la API (fuente de verdad) y los formularios de la web.
 import { z } from 'zod';
 import {
+  CustodyEventKind,
   Gender,
   LocationKind,
   MaterialFamily,
@@ -9,8 +10,11 @@ import {
   ProductKind,
   ProductStatus,
   StoneOrigin,
+  PaymentMethod,
   TrackingMode,
   TransferPurpose,
+  WorkItemSource,
+  WorkOrderKind,
 } from './enums';
 
 // ---- helpers: los formularios mandan '' para "vacío" ------------------------
@@ -283,3 +287,120 @@ export const userInput = z.object({
   is_active: z.boolean().default(true),
 });
 export type UserInput = z.infer<typeof userInput>;
+
+// ---- procesos (ops) ---------------------------------------------------------
+const reqWeight = z.coerce.number({ invalid_type_error: 'Debe ser un número' })
+  .positive('El peso debe ser mayor a 0');
+const reqQty = z.coerce.number().positive('La cantidad debe ser mayor a 0');
+
+/** Recepción de una pieza de un cliente. El peso de entrada no es opcional. */
+export const custodyInput = z.object({
+  customer_name: reqText.max(200),
+  customer_phone: optText,
+  customer_document: optText,
+  description: reqText,
+  requested_service: reqText,
+  material_id: optId,
+  received_weight_g: reqWeight,
+  stone_notes: optText,
+  condition_notes: optText,
+  location_id: reqId,
+  promised_on: optDate,
+  quoted_amount: optNonNeg,
+  quoted_currency: optText,
+  notes: optText,
+});
+export type CustodyInput = z.infer<typeof custodyInput>;
+
+export const custodyMoveInput = z.object({
+  to_location_id: reqId,
+  kind: z.enum(CustodyEventKind.values).default('moved'),
+  weight_g: optPositive,
+  notes: optText,
+});
+
+export const custodyDeliverInput = z.object({
+  delivered_to: reqText,
+  weight_g: reqWeight,
+  notes: optText,
+});
+
+export const workOrderInput = z.object({
+  kind: z.enum(WorkOrderKind.values),
+  location_id: reqId,
+  custody_item_id: optId,
+  assigned_user_id: optId,
+  assigned_supplier_id: optId,
+  promised_on: optDate,
+  labor_cost: optNonNeg,
+  labor_currency: optText,
+  notes: optText,
+});
+export type WorkOrderInput = z.infer<typeof workOrderInput>;
+
+export const workOrderItemInput = z.object({
+  source: z.enum(WorkItemSource.values),
+  variant_id: optId,
+  serial_id: optId,
+  custody_item_id: optId,
+  material_id: optId,
+  from_location_id: optId,
+  quantity: reqQty.default(1),
+  weight_g: reqWeight,
+  notes: optText,
+});
+
+export const workOrderOutputInput = z.object({
+  variant_id: optId,
+  serial_id: optId,
+  custody_item_id: optId,
+  to_location_id: optId,
+  quantity: reqQty.default(1),
+  weight_g: reqWeight,
+  notes: optText,
+});
+
+export const workOrderLossInput = z.object({
+  material_id: optId,
+  weight_g: reqWeight,
+  is_recovered: z.boolean().default(false),
+  reason: reqText,
+});
+
+export const consignmentInput = z.object({
+  partner_location_id: reqId,
+  partner_name: reqText,
+  partner_contact: optText,
+  from_location_id: reqId,
+  commission_pct: z.coerce.number().min(0).max(100).default(0),
+  currency_code: reqText.max(3),
+  due_on: optDate,
+  responsible_user_id: optId,
+  notes: optText,
+  lines: z
+    .array(
+      z.object({
+        variant_id: reqId,
+        serial_id: optId,
+        quantity_sent: reqQty,
+        unit_price: optNonNeg,
+      }),
+    )
+    .min(1, 'Agregue al menos un artículo'),
+});
+export type ConsignmentInput = z.infer<typeof consignmentInput>;
+
+export const consignmentMoveInput = z.object({ quantity: reqQty });
+
+export const settlementInput = z.object({
+  period_from: z.string().date('Fecha inválida'),
+  period_to: z.string().date('Fecha inválida'),
+});
+
+export const layawayPaymentInput = z.object({
+  amount: z.coerce.number().positive('El monto debe ser mayor a 0'),
+  currency_code: reqText.max(3),
+  method: z.enum(PaymentMethod.values).default('cash'),
+  receipt_no: optText,
+  notes: optText,
+});
