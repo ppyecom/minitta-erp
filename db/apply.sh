@@ -109,14 +109,26 @@ done
 SMOKE_FAILED=0
 if [ "$SMOKE" -eq 1 ]; then
   echo
-  echo '[3/3] Prueba de humo...'
-  if psql "${CONN[@]}" -v ON_ERROR_STOP=1 -d "$DB" -f "$DIR/999_smoke_test.sql"; then
+  echo '[3/3] Pruebas de humo...'
+  shopt -s nullglob
+  SMOKES=("$DIR"/99*.sql)
+  shopt -u nullglob
+  IFS=$'
+' SMOKES=($(printf '%s
+' "${SMOKES[@]}" | sort)); unset IFS
+  for sf in "${SMOKES[@]}"; do
     echo
-    echo 'Prueba de humo OK.'
+    echo "--- $(basename "$sf")"
+    if ! psql "${CONN[@]}" -v ON_ERROR_STOP=1 -d "$DB" -f "$sf"; then
+      SMOKE_FAILED=1
+    fi
+  done
+  if [ "$SMOKE_FAILED" -eq 0 ]; then
+    echo
+    echo 'Pruebas de humo OK.'
   else
     echo
-    echo 'La prueba de humo falló.' >&2
-    SMOKE_FAILED=1
+    echo 'Alguna prueba de humo falló.' >&2
   fi
 else
   echo

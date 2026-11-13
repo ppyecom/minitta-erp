@@ -17,7 +17,7 @@ param(
   [int]   $Port     = $(if ($env:PGPORT) { [int]$env:PGPORT } else { 5432 }),
   [string]$User     = $(if ($env:PGUSER) { $env:PGUSER } else { 'postgres' }),
   [string]$PsqlPath = '',
-  [switch]$SmokeTest,   # corre db/999_smoke_test.sql al final
+  [switch]$SmokeTest,   # corre db/99*.sql al final
   [switch]$Recreate,    # borra la base antes de crearla (DESTRUCTIVO)
   [switch]$Drop         # borra la base al terminar (para pruebas desechables)
 )
@@ -106,17 +106,21 @@ if ($failed) {
 # --- 3. prueba de humo ------------------------------------------------------
 $smokeFailed = $false
 if ($SmokeTest) {
-  $smoke = Join-Path $PSScriptRoot '999_smoke_test.sql'
   Write-Host ''
-  Write-Host '[3/3] Prueba de humo...' -ForegroundColor Yellow
-  & $psql @conn @('-v','ON_ERROR_STOP=1','-d',$Database,'-f', $smoke)
-  if ($LASTEXITCODE -ne 0) {
+  Write-Host '[3/3] Pruebas de humo...' -ForegroundColor Yellow
+  $smokes = Get-ChildItem -Path $PSScriptRoot -Filter '99*.sql' | Sort-Object Name
+  foreach ($sf in $smokes) {
     Write-Host ''
-    Write-Host "La prueba de humo fallo (exit $LASTEXITCODE)." -ForegroundColor Red
-    $smokeFailed = $true
+    Write-Host "--- $($sf.Name)" -ForegroundColor DarkGray
+    & $psql @conn @('-v','ON_ERROR_STOP=1','-d',$Database,'-f', $sf.FullName)
+    if ($LASTEXITCODE -ne 0) { $smokeFailed = $true }
+  }
+  if ($smokeFailed) {
+    Write-Host ''
+    Write-Host 'Alguna prueba de humo fallo.' -ForegroundColor Red
   } else {
     Write-Host ''
-    Write-Host 'Prueba de humo OK.' -ForegroundColor Green
+    Write-Host 'Pruebas de humo OK.' -ForegroundColor Green
   }
 } else {
   Write-Host ''

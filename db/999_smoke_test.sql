@@ -280,4 +280,6 @@ END $$;
 \echo '--- y el kardex sigue intacto después de los 6 intentos'
 SELECT count(*) AS movimientos, sum(quantity) AS suma_neta FROM inventory.movement;
 
-COMMIT;
+-- ROLLBACK, no COMMIT: la prueba verifica y no deja nada. Antes commiteaba, y por eso
+-- una base recién creada con --smoke-test arrancaba con productos y stock de mentira.
+ROLLBACK;
