@@ -35,7 +35,7 @@ export class WorkOrdersController {
       sql`
         SELECT w.*, l.code AS location_code, l.name AS location_name,
                u.full_name AS assigned_user_name, s.name AS assigned_supplier_name,
-               c.code AS custody_code, c.customer_name,
+               c.code AS custody_code, cuc.name AS customer_name,
                b.input_g, b.output_g, b.recovered_g, b.loss_g, b.diff_g, b.loss_pct,
                b.max_loss_pct, b.balanced,
                (w.promised_on IS NOT NULL AND w.promised_on < current_date
@@ -46,6 +46,7 @@ export class WorkOrdersController {
         LEFT JOIN core.app_user u ON u.id = w.assigned_user_id
         LEFT JOIN core.supplier s ON s.id = w.assigned_supplier_id
         LEFT JOIN ops.custody_item c ON c.id = w.custody_item_id
+        LEFT JOIN core.customer cuc ON cuc.id = c.customer_id
         ${where}
         ORDER BY (w.status NOT IN ('closed','cancelled')) DESC, w.opened_at DESC
         LIMIT ${pageSize} OFFSET ${offset}`.execute(this.dbs.db),
@@ -59,7 +60,7 @@ export class WorkOrdersController {
     const w = await sql`
       SELECT w.*, l.code AS location_code, l.name AS location_name,
              u.full_name AS assigned_user_name, s.name AS assigned_supplier_name,
-             c.code AS custody_code, c.customer_name, c.description AS custody_description,
+             c.code AS custody_code, cuc.name AS customer_name, c.description AS custody_description,
              b.input_g, b.output_g, b.recovered_g, b.loss_g, b.diff_g, b.loss_pct,
              b.max_loss_pct, b.balanced
       FROM ops.work_order w
@@ -68,6 +69,7 @@ export class WorkOrdersController {
       LEFT JOIN core.app_user u ON u.id = w.assigned_user_id
       LEFT JOIN core.supplier s ON s.id = w.assigned_supplier_id
       LEFT JOIN ops.custody_item c ON c.id = w.custody_item_id
+      LEFT JOIN core.customer cuc ON cuc.id = c.customer_id
       WHERE w.id = ${id}`
       .execute(this.dbs.db)
       .then((r) => r.rows[0]);

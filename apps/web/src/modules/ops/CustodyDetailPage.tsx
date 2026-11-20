@@ -31,9 +31,12 @@ interface Detail {
   id: number;
   code: string;
   status: string;
+  customer_id: number;
+  customer_code: string;
   customer_name: string;
   customer_phone: string | null;
-  customer_document: string | null;
+  document_type: string;
+  document_number: string | null;
   description: string;
   requested_service: string;
   material_name: string | null;
@@ -236,7 +239,7 @@ export function CustodyDetailPage() {
               <Stat label="Cotizado" value={money(c.quoted_amount, c.quoted_currency ?? 'PEN')} />
             )}
             {c.delivered_at && <Stat label="Entregada a" value={`${c.delivered_to} · ${dateTime(c.delivered_at)}`} />}
-            <Stat label="Documento" value={c.customer_document} />
+            <Stat label="Documento" value={c.document_number ?? "—"} />
           </dl>
         </Card>
 

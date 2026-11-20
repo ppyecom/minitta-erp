@@ -126,26 +126,27 @@ Qué cubre cada una:
 
 | | |
 |---|---|
+| `995_smoke_customer.sql` | el cliente como entidad: la misma persona en custodia y apartado es una sola ficha, el documento no se duplica. **7 reglas que deben rechazarse** |
 | `996_smoke_auth.sql` | roles y permisos: cada rol puede lo suyo, el admin hereda los permisos nuevos, las sesiones se revocan. **4 reglas que deben rechazarse** |
 | `997_smoke_pendientes.sql` | la lista de trabajo: qué le falta a cada variante, y que sale sola al completarse |
 | `998_smoke_ops.sql` | custodia, taller con cuadre de gramos, consignación y apartados. **7 reglas que deben rechazarse** |
 | `999_smoke_test.sql` | un producto con 5 variantes y 100 piedras, precio manual vs. calculado por peso, piezas serializadas con pesos reales, una pieza en el taller, kardex con saldo corrido, apartado, inventario de apertura, reposición, reconstrucción del saldo y auditoría. **6 reglas que deben rechazarse** |
 
-Son **17 reglas** que tienen que decir `RECHAZADO`: vender más de lo que hay, mover 2 unidades
+Son **24 reglas** que tienen que decir `RECHAZADO`: vender más de lo que hay, mover 2 unidades
 de una pieza única, editar o borrar un movimiento del kardex, cerrar una orden de taller sin
 que cuadren los gramos, convertir la pieza de un cliente en stock nuestro, firmarse la propia
-merma…
+merma, cargar dos clientes con el mismo DNI…
 
 Y la prueba de punta a punta de la API, que levanta el servidor contra una base desechable y
-recorre el login completo (38 chequeos):
+recorre el camino real: login, permisos y clientes.
 
 ```bash
-npm run test:auth
+npm run test:e2e
 ```
 
 ---
 
-## Las 4 reglas que no se rompen
+## Las 5 reglas que no se rompen
 
 1. **El stock no se escribe.** `inventory.stock` es caché de `inventory.movement`.
    `inventory.rebuild_stock()` lo reconstruye y `inventory.v_stock_integrity` debe devolver
@@ -157,6 +158,9 @@ npm run test:auth
 4. **El usuario no se declara, se autentica.** Sale de la cookie de sesión, nunca de un dato
    que manda el cliente. Todo endpoint pide sesión por omisión y los permisos se preguntan
    siempre con `core.user_can()`. Ver [docs/10](docs/10-login-y-permisos.md).
+5. **El cliente es uno solo.** `core.customer`, con FK desde custodia y apartados. Nunca
+   volver a guardar el nombre del cliente en otra tabla: si está mal, se corrige en la ficha
+   y queda corregido en toda su historia. Ver [docs/11](docs/11-clientes.md).
 
 Contexto que la app debe setear en cada sesión de base de datos:
 
@@ -225,7 +229,8 @@ regla.
 | [07 — Instalar y migrar](docs/07-instalar-y-migrar.md) | paso a paso en la PC que llega al servidor viejo |
 | [08 — Procesos](docs/08-procesos.md) | custodia, taller con cuadre de gramos, consignación, apartados |
 | [09 — La carga única](docs/09-carga-unica.md) | el corte del ERP viejo al nuevo, paso a paso |
-| [10 — Login y permisos](docs/10-login-y-permisos.md) | sesiones, contraseñas, los 22 permisos y los 6 roles |
+| [10 — Login y permisos](docs/10-login-y-permisos.md) | sesiones, contraseñas, los 24 permisos y los 6 roles |
+| [11 — Clientes](docs/11-clientes.md) | el cliente como entidad, la deduplicación por documento y la ficha 360 |
 
 ---
 

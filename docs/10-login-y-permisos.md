@@ -17,7 +17,7 @@ ya estaba construido signifique algo.
 |---|---|
 | `x-user-id` en la cabecera, elegida en un combo | cookie de sesión `httpOnly` que pone la API al validar la contraseña |
 | cualquiera podía ser cualquiera | contraseña con `scrypt` y bloqueo a los 5 intentos |
-| un solo permiso (`can_see_cost`) | 22 permisos en filas, agrupados en 6 roles |
+| un solo permiso (`can_see_cost`) | permisos en filas, agrupados en 6 roles (22 al salir esta etapa; 24 con los de clientes) |
 | la merma la podía firmar quien la cargó | lo impide una restricción de la base |
 | la sesión no existía | vive en `core.user_session`: se revoca en el acto |
 
@@ -70,7 +70,7 @@ contraseñas que ya existen.
 
 ## 4. Los permisos son filas, no un enum
 
-`core.permission` tiene 22 filas (`catalog.read`, `inventory.count.apply`, `ops.loss.approve`,
+`core.permission` tiene 22 filas al salir esta etapa (24 con los de clientes, ver [docs/11](11-clientes.md)) (`catalog.read`, `inventory.count.apply`, `ops.loss.approve`,
 `core.users`…). Un permiso nuevo es un `INSERT`, no una migración de tipo.
 
 `core.role` + `core.role_permission` + `core.user_role` arman quién puede qué. Vienen 6 roles:
@@ -174,8 +174,8 @@ tener contraseña.
 - **4 reglas que deben rechazarse**: un usuario de sistema con contraseña, un rol duplicado,
   dos sesiones con el mismo token, y firmarse la propia merma
 
-`scripts/e2e-auth.ps1` (`npm run test:auth`) levanta la API contra una base desechable y
-recorre el camino real, 38 chequeos. Verifica lo que el SQL no puede: que la cookie sea
+`scripts/e2e.ps1` (`npm run test:e2e`) levanta la API contra una base desechable y
+recorre el camino real. Verifica lo que el SQL no puede: que la cookie sea
 `httpOnly`, que el hash nunca salga en una respuesta, que el guard global tape los endpoints
 por omisión, que un usuario inexistente dé el mismo mensaje que una clave errada, que la
 vendedora reciba 403 al mover stock, y que el bloqueo a los 5 intentos funcione.

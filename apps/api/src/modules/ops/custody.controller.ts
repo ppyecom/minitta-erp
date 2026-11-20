@@ -23,13 +23,19 @@ export class CustodyController {
       WHERE (${q.status || null}::text IS NULL OR c.status::text = ${q.status || null})
         AND (${q.location_id || null}::bigint IS NULL OR c.location_id = ${q.location_id || null}::bigint)
         AND (${q.pending || null}::text IS NULL OR c.status <> 'delivered')
+        AND (${q.customer_id || null}::bigint IS NULL
+             OR c.customer_id = ${q.customer_id || null}::bigint)
         AND (${q.q || null}::text IS NULL
-             OR c.customer_name ILIKE '%' || ${q.q || null} || '%'
+             OR cu.name ILIKE '%' || ${q.q || null} || '%'
+             OR cu.phone LIKE '%' || ${q.q || null} || '%'
+             OR cu.document_number LIKE ${q.q || null} || '%'
              OR c.code ILIKE '%' || ${q.q || null} || '%'
              OR c.description ILIKE '%' || ${q.q || null} || '%')`;
     const [rows, total] = await Promise.all([
       sql`
         SELECT c.*, l.code AS location_code, l.name AS location_name,
+               cu.code AS customer_code, cu.name AS customer_name,
+               cu.phone AS customer_phone, cu.document_type, cu.document_number,
                m.name AS material_name, u.full_name AS received_by_name,
                (c.promised_on IS NOT NULL AND c.promised_on < current_date
                 AND c.status <> 'delivered') AS is_overdue,
@@ -38,13 +44,16 @@ export class CustodyController {
                  WHERE w.custody_item_id = c.id AND w.status NOT IN ('closed','cancelled')
                  ORDER BY w.id DESC LIMIT 1) AS open_work_order
         FROM ops.custody_item c
+        JOIN core.customer cu ON cu.id = c.customer_id
         JOIN core.location l ON l.id = c.location_id
         LEFT JOIN catalog.material m ON m.id = c.material_id
         LEFT JOIN core.app_user u ON u.id = c.received_by
         ${where}
         ORDER BY (c.status <> 'delivered') DESC, c.received_at DESC
         LIMIT ${pageSize} OFFSET ${offset}`.execute(this.dbs.db),
-      sql<{ n: number }>`SELECT count(*)::int AS n FROM ops.custody_item c ${where}`.execute(this.dbs.db),
+      sql<{ n: number }>`
+        SELECT count(*)::int AS n FROM ops.custody_item c
+        JOIN core.customer cu ON cu.id = c.customer_id ${where}`.execute(this.dbs.db),
     ]);
     return { items: rows.rows, total: total.rows[0].n, page, pageSize };
   }
@@ -53,9 +62,12 @@ export class CustodyController {
   async get(@Param('id', ParseIntPipe) id: number) {
     const item = await sql`
       SELECT c.*, l.code AS location_code, l.name AS location_name,
+             cu.code AS customer_code, cu.name AS customer_name,
+             cu.phone AS customer_phone, cu.document_type, cu.document_number,
              m.name AS material_name, u.full_name AS received_by_name,
              ud.full_name AS delivered_by_name
       FROM ops.custody_item c
+      JOIN core.customer cu ON cu.id = c.customer_id
       JOIN core.location l ON l.id = c.location_id
       LEFT JOIN catalog.material m ON m.id = c.material_id
       LEFT JOIN core.app_user u ON u.id = c.received_by

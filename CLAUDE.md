@@ -1,6 +1,6 @@
 # CLAUDE.md — reglas de trabajo en este repo
 
-Este archivo no resume el proyecto (para eso están el [README](README.md) y `docs/01`..`docs/10`).
+Este archivo no resume el proyecto (para eso están el [README](README.md) y `docs/01`..`docs/11`).
 Fija las reglas que el esquema **ya impone** y que es fácil romper desde la aplicación.
 
 Base: PostgreSQL 16+ (verificado en 18.1). Esquemas `core`, `catalog`, `pricing`, `inventory`, `ops`.
@@ -77,7 +77,7 @@ el cliente. Ver la sección 8.
 
 ## 6. Migraciones
 
-- Son **archivos numerados en `db/`** (`001_core.sql` .. `012_auth.sql`).
+- Son **archivos numerados en `db/`** (`001_core.sql` .. `013_customer.sql`).
 - Se **agregan**: un archivo ya aplicado no se edita nunca. Un cambio al esquema es un
   `008_...sql` nuevo.
 - Se aplican con [`db/apply.ps1`](db/apply.ps1) (Windows) o [`db/apply.sh`](db/apply.sh), no a
@@ -85,12 +85,17 @@ el cliente. Ver la sección 8.
 - Las pruebas de humo son `db/99*.sql` y las corre `--smoke-test` / `-SmokeTest`, todas, en
   orden. Cada una va en una sola transacción, termina en `ROLLBACK` (verifica y no deja
   datos) y debe salir con **exit 0**:
+  `995_smoke_customer.sql` (clientes, 7 reglas en `RECHAZADO`),
   `996_smoke_auth.sql` (roles y permisos, 4 reglas en `RECHAZADO`),
   `997_smoke_pendientes.sql` (lista de trabajo), `998_smoke_ops.sql` (procesos, 7 reglas
   en `RECHAZADO`) y `999_smoke_test.sql` (inventario, casos 1–8 más el 6b y 6 reglas en
-  `RECHAZADO`). En total son 17 reglas que tienen que decir `RECHAZADO`.
-- La prueba de punta a punta de la API es `npm run test:auth` (`scripts/e2e-auth.ps1`):
-  levanta la API contra una base desechable y la borra al terminar. Necesita PowerShell 7.
+  `RECHAZADO`). En total son 24 reglas que tienen que decir `RECHAZADO`.
+- La prueba de punta a punta de la API es `npm run test:e2e` (`scripts/e2e.ps1`): levanta la
+  API contra una base desechable y la borra al terminar. Necesita PowerShell 7. Al agregar
+  un módulo se le agrega una fase, no se arma otro script.
+- Una migración que **borra una columna** tiene que recrear antes las vistas que la usan
+  (`CREATE OR REPLACE VIEW` con la misma lista de columnas), porque los archivos anteriores
+  no se editan. `013` lo hace con las cuatro vistas de `010`.
 - Los scripts de migración desde el legacy viven en **`db/migration/`** y son otra cosa:
   no forman parte del esquema y se corren una sola vez, con `db/migration/run.ps1`.
   Ese script **borra la base de destino**: se corta solo si ya tiene datos, salvo `-Force`.
@@ -113,7 +118,26 @@ Ver [docs/08](docs/08-procesos.md). Tres reglas que la aplicación no puede salt
 La merma **recuperada** (`is_recovered`) cuadra el peso pero no cuenta contra el estándar de
 `ops.loss_standard`: ese oro sigue siendo nuestro.
 
-## 8. Login y permisos (`core`, apps/api/src/auth)
+## 8. El cliente es uno solo (`core.customer`)
+
+Ver [docs/11](docs/11-clientes.md). Era texto libre en tres lugares que no se hablaban, y
+volver a eso es el error más fácil de cometer:
+
+- **No volver a guardar el nombre del cliente en otra tabla.** `ops.custody_item` e
+  `inventory.reservation` apuntan a `core.customer` con una FK `NOT NULL`. Una venta, una
+  cotización o un módulo nuevo hacen lo mismo: `customer_id`, nunca `customer_name`. Si el
+  nombre está mal se corrige en la ficha y queda corregido en toda la historia.
+- `delivered_to` (quién retiró la pieza) **sí** es texto, y no es el cliente: puede ser el
+  marido o un cadete. Son dos datos distintos, no unificarlos.
+- **El índice único por documento es parcial** (`WHERE document_type <> 'none'`). No hacerlo
+  total: el cliente de vitrina no tiene documento, y forzarlo lleva a que alguien escriba
+  `00000000` y arruine la deduplicación.
+- Un cliente con custodias abiertas o apartados activos **no se desactiva**, y lo impone un
+  trigger. `core.v_customer_360.open_items` es el dato.
+- El vendedor puede **crear** clientes (`customers.write`) a propósito: si crear uno
+  costara pedir permiso, en una semana volvería el texto libre.
+
+## 9. Login y permisos (`core`, apps/api/src/auth)
 
 Ver [docs/10](docs/10-login-y-permisos.md). Esto es lo que hace que el `created_by` de un
 movimiento y la firma de una merma signifiquen algo, así que no se puede relajar:
@@ -145,7 +169,7 @@ movimiento y la firma de una merma signifiquen algo, así que no se puede relaja
 - En producción detrás de HTTPS hay que poner `secure: true` en la cookie
   (`auth.controller.ts`); hoy está en `false` porque corre en `http://localhost`.
 
-## 9. La aplicación (apps/api, apps/web)
+## 10. La aplicación (apps/api, apps/web)
 
 - **Toda escritura pasa por `DbService.tx(user, fn)`**: abre la transacción y fija
   `app.user_id`/`app.client_info` con `set_config(..., true)`. No escribir con `dbs.db` directo.
@@ -163,7 +187,7 @@ movimiento y la firma de una merma signifiquen algo, así que no se puede relaja
   (`ops.start_work_order`, `ops.close_work_order`, `ops.send_consignment`…). Un `UPDATE`
   directo sobre `ops.work_order.status` saltea el cuadre de gramos.
 
-## 10. Nunca commitear
+## 11. Nunca commitear
 
 - `.env` (hay `.env.example` con las variables, sin valores).
 - CSV, XLSX o `.bak` con datos del ERP viejo, ni exports, ni capturas de la base de

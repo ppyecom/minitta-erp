@@ -2,6 +2,8 @@
 import { z } from 'zod';
 import {
   CustodyEventKind,
+  CustomerKind,
+  DocumentType,
   Gender,
   LocationKind,
   MaterialFamily,
@@ -295,9 +297,8 @@ const reqQty = z.coerce.number().positive('La cantidad debe ser mayor a 0');
 
 /** Recepción de una pieza de un cliente. El peso de entrada no es opcional. */
 export const custodyInput = z.object({
-  customer_name: reqText.max(200),
-  customer_phone: optText,
-  customer_document: optText,
+  // el cliente es una entidad (core.customer), no tres campos de texto
+  customer_id: reqId,
   description: reqText,
   requested_service: reqText,
   material_id: optId,
@@ -450,3 +451,59 @@ export const roleInput = z.object({
   permission_ids: z.array(z.coerce.number().int().positive()).default([]),
 });
 export type RoleInput = z.infer<typeof roleInput>;
+
+// ---- clientes ---------------------------------------------------------------
+/**
+ * El formato del documento lo valida igual la base (customer_document_format):
+ * acá se repite para que el formulario avise antes de mandar, no para suplirlo.
+ */
+export const customerInput = z
+  .object({
+    kind: z.enum(CustomerKind.values).default('person'),
+    document_type: z.enum(DocumentType.values).default('none'),
+    document_number: optText,
+    name: reqText.max(200),
+    trade_name: optText,
+    phone: optText,
+    phone_alt: optText,
+    email: optText,
+    address_line: optText,
+    city: optText,
+    birth_date: optDate,
+    notes: optText,
+    is_active: z.boolean().default(true),
+  })
+  .superRefine((v, ctx) => {
+    const num = v.document_number?.trim() || '';
+    if (v.document_type === 'none') {
+      if (num) {
+        ctx.addIssue({ code: 'custom', path: ['document_type'],
+          message: 'Elija el tipo de documento' });
+      }
+      return;
+    }
+    if (!num) {
+      ctx.addIssue({ code: 'custom', path: ['document_number'],
+        message: 'Escriba el número del documento' });
+      return;
+    }
+    const rules: Record<string, [RegExp, string]> = {
+      dni: [/^[0-9]{8}$/, 'El DNI son 8 dígitos'],
+      ruc: [/^[0-9]{11}$/, 'El RUC son 11 dígitos'],
+      ce: [/^[A-Za-z0-9]{8,12}$/, 'El carné de extranjería son 8 a 12 caracteres'],
+      passport: [/^[A-Za-z0-9]{6,20}$/, 'El pasaporte son 6 a 20 caracteres'],
+    };
+    const rule = rules[v.document_type];
+    if (rule && !rule[0].test(num)) {
+      ctx.addIssue({ code: 'custom', path: ['document_number'], message: rule[1] });
+    }
+    if (v.document_type === 'ruc' && v.kind !== 'company') {
+      ctx.addIssue({ code: 'custom', path: ['kind'],
+        message: 'Un RUC es de una empresa' });
+    }
+    if (v.birth_date && v.kind === 'company') {
+      ctx.addIssue({ code: 'custom', path: ['birth_date'],
+        message: 'Una empresa no tiene fecha de nacimiento' });
+    }
+  });
+export type CustomerInput = z.infer<typeof customerInput>;

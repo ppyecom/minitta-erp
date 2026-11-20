@@ -145,12 +145,16 @@ FROM inventory.v_kardex WHERE sku='LLAV-MIN-STD' ORDER BY occurred_at;
 -- -----------------------------------------------------------------------------
 -- CASO 4 — apartado: el papelito en la vitrina, ahora como dato
 -- -----------------------------------------------------------------------------
+INSERT INTO core.customer (kind, name, phone, created_by)
+VALUES ('person','Cliente de prueba','999888777', 1);
+
 INSERT INTO inventory.reservation
-  (variant_id, location_id, kind, quantity, customer_name, customer_phone,
+  (variant_id, location_id, kind, quantity, customer_id,
    deposit_amount, deposit_currency, expires_at, created_by)
 VALUES ((SELECT id FROM catalog.variant WHERE sku='LLAV-MIN-STD'),
         (SELECT id FROM core.location WHERE code='T-1'),
-        'layaway', 10, 'Cliente de prueba','999888777', 50.00,'PEN',
+        'layaway', 10,
+        (SELECT id FROM core.customer WHERE name='Cliente de prueba'), 50.00,'PEN',
         now() + interval '15 days', 1);
 
 \echo '--- caso 4: 95 en mano, 10 apartados, 85 realmente vendibles'

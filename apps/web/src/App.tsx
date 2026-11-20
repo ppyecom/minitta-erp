@@ -37,6 +37,11 @@ export function App() {
               <Route path="maestros" element={page(() => import('@/modules/catalog/MastersPage'), 'MastersPage')} />
             </Route>
 
+          <Route path="clientes">
+            <Route index element={page(() => import('@/modules/customers/CustomersPage'), 'CustomersPage')} />
+            <Route path=":id" element={page(() => import('@/modules/customers/CustomerDetailPage'), 'CustomerDetailPage')} />
+          </Route>
+
           <Route path="inventario">
             <Route index element={<Navigate to="stock" replace />} />
             <Route path="stock" element={page(() => import('@/modules/inventory/StockPage'), 'StockPage')} />

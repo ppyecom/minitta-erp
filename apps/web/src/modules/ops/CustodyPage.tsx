@@ -5,6 +5,7 @@ import { HandCoins, Plus } from 'lucide-react';
 import { CustodyStatus, type Page } from '@minitta/shared';
 import { api, qs } from '@/lib/api';
 import { useLookups } from '@/lib/lookups';
+import { CustomerPicker } from '@/modules/customers/CustomerPicker';
 import { useSave } from '@/lib/forms';
 import { useSession } from '@/lib/session';
 import { date, grams } from '@/lib/utils';
@@ -18,6 +19,8 @@ export interface CustodyRow {
   id: number;
   code: string;
   status: string;
+  customer_id: number;
+  customer_code: string;
   customer_name: string;
   customer_phone: string | null;
   description: string;
@@ -46,9 +49,7 @@ export function CustodyStatusBadge({ status }: { status: string }) {
 }
 
 const EMPTY = {
-  customer_name: '',
-  customer_phone: '',
-  customer_document: '',
+  customer_id: null as number | null,
   description: '',
   requested_service: '',
   material_id: '',
@@ -102,17 +103,18 @@ function ReceiveSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v:
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Cliente" required error={save.fields.customer_name}>
-          <Input value={f.customer_name} onChange={set('customer_name')} autoFocus />
-        </Field>
-        <Field label="Teléfono">
-          <Input value={f.customer_phone} onChange={set('customer_phone')} />
-        </Field>
-        <Field label="Documento" className="sm:col-span-2">
-          <Input value={f.customer_document} onChange={set('customer_document')} placeholder="DNI, CE…" />
-        </Field>
-      </div>
+      <Field
+        label="Cliente"
+        required
+        error={save.fields.customer_id}
+        hint="Si ya dejó algo antes, va a aparecer con su historia. Si no está, se crea acá."
+      >
+        <CustomerPicker
+          value={f.customer_id}
+          onChange={(id) => setF((p) => ({ ...p, customer_id: id }))}
+          autoFocus
+        />
+      </Field>
 
       <div className="mt-5 grid gap-4">
         <Field label="Qué es la pieza" required error={save.fields.description}>

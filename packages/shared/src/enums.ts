@@ -268,3 +268,18 @@ export const PendingReason = labels({
   peso_vs_precio: 'El peso no cierra con el precio',
   sin_revisar: 'Sin revisar',
 });
+
+export const CustomerKind = labels({
+  person: 'Persona',
+  company: 'Empresa',
+});
+
+// documentos de identidad del Perú. 'none' es el cliente de vitrina: compra y se
+// va, y no se le va a pedir el DNI para venderle un par de aretes.
+export const DocumentType = labels({
+  dni: 'DNI',
+  ruc: 'RUC',
+  ce: 'Carné de extranjería',
+  passport: 'Pasaporte',
+  none: 'Sin documento',
+});

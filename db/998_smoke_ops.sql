@@ -48,11 +48,20 @@ SELECT inventory.post_movement(
 -- =============================================================================
 \echo '--- caso 1: recibir la pieza de un cliente escribe el primer eslabón sola'
 -- =============================================================================
+-- el cliente es una entidad: la misma señora en custodia y en un apartado es
+-- una sola fila, y se la identifica por su DNI (migración 013)
+INSERT INTO core.customer (kind, document_type, document_number, name, phone, created_by)
+VALUES ('person','dni','40123456','María Quispe','999888777', 1),
+       ('person','dni','09876543','Luis Ramos','988777666', 1),
+       ('person','none', NULL,     'Ana Torres', NULL, 1),
+       ('person','none', NULL,     'Pedro Díaz', NULL, 1);
+
 INSERT INTO ops.custody_item
-  (code, customer_name, customer_phone, description, material_id, received_weight_g,
+  (code, customer_id, description, material_id, received_weight_g,
    stone_notes, condition_notes, requested_service, location_id, received_by, promised_on)
 VALUES
-  ('CUS-0001','María Quispe','999888777','Anillo de compromiso, oro amarillo',
+  ('CUS-0001',(SELECT id FROM core.customer WHERE document_number='40123456'),
+   'Anillo de compromiso, oro amarillo',
    (SELECT id FROM catalog.material WHERE code='AU18'), 4.820,
    '1 brillante central','Aro abierto, piedra floja','Soldar aro y ajustar engaste',
    1, 1, current_date + 7);
@@ -189,17 +198,19 @@ SELECT quantity_sent, quantity_sold, quantity_returned,
 \echo '--- caso 5: apartado con cuotas'
 -- =============================================================================
 INSERT INTO inventory.reservation
-  (variant_id, location_id, kind, quantity, customer_name, customer_phone,
+  (variant_id, location_id, kind, quantity, customer_id,
    deposit_amount, deposit_currency, reserved_at, expires_at, created_by)
 VALUES ((SELECT id FROM catalog.variant WHERE sku='OPS-Q'), 1,'layaway', 1,
-        'Luis Ramos','988777666', 50.00,'PEN',
+        (SELECT id FROM core.customer WHERE document_number='09876543'), 50.00,'PEN',
         now() - interval '30 days', now() - interval '1 day', 1);
 
 SELECT ops.register_layaway_payment(
-  (SELECT id FROM inventory.reservation WHERE customer_name='Luis Ramos'),
+  (SELECT r.id FROM inventory.reservation r JOIN core.customer c ON c.id = r.customer_id
+    WHERE c.name='Luis Ramos'),
   50.00,'PEN', 1,'cash'::ops.payment_method) AS pagado_total;
 SELECT ops.register_layaway_payment(
-  (SELECT id FROM inventory.reservation WHERE customer_name='Luis Ramos'),
+  (SELECT r.id FROM inventory.reservation r JOIN core.customer c ON c.id = r.customer_id
+    WHERE c.name='Luis Ramos'),
   30.00,'PEN', 1,'wallet'::ops.payment_method) AS pagado_total;
 
 SELECT customer_name, sku, paid, payment_count, status
@@ -207,7 +218,8 @@ SELECT customer_name, sku, paid, payment_count, status
 
 \echo '    el apartado está vencido: expirarlo libera la pieza'
 SELECT ops.expire_layaways(1) AS apartados_vencidos;
-SELECT status, quantity FROM inventory.reservation WHERE customer_name='Luis Ramos';
+SELECT r.status, r.quantity FROM inventory.reservation r
+  JOIN core.customer c ON c.id = r.customer_id WHERE c.name='Luis Ramos';
 
 -- =============================================================================
 \echo '--- caso 6: todo lo que en este momento NO está en una sede'
@@ -275,9 +287,10 @@ BEGIN
   -- 5. una pieza en custodia no puede volverse stock nuestro
   BEGIN
     INSERT INTO ops.custody_item
-      (code, customer_name, description, received_weight_g, requested_service,
+      (code, customer_id, description, received_weight_g, requested_service,
        location_id, received_by)
-    VALUES ('CUS-0002','Ana Torres','Dije de oro', 3.000,'Pulir', 1, 1);
+    VALUES ('CUS-0002',(SELECT id FROM core.customer WHERE name='Ana Torres'),
+            'Dije de oro', 3.000,'Pulir', 1, 1);
     INSERT INTO ops.work_order (code, kind, location_id, custody_item_id, created_by)
     VALUES ('OT-ROBO','polish', 10,
             (SELECT id FROM ops.custody_item WHERE code='CUS-0002'), 1);
@@ -321,9 +334,10 @@ BEGIN
   -- 8. no se entrega una pieza con la orden abierta
   BEGIN
     INSERT INTO ops.custody_item
-      (code, customer_name, description, received_weight_g, requested_service,
+      (code, customer_id, description, received_weight_g, requested_service,
        location_id, received_by)
-    VALUES ('CUS-0003','Pedro Díaz','Cadena', 8.000,'Soldar', 1, 1);
+    VALUES ('CUS-0003',(SELECT id FROM core.customer WHERE name='Pedro Díaz'),
+            'Cadena', 8.000,'Soldar', 1, 1);
     INSERT INTO ops.work_order (code, kind, location_id, custody_item_id, created_by)
     VALUES ('OT-0003','repair', 10,
             (SELECT id FROM ops.custody_item WHERE code='CUS-0003'), 1);

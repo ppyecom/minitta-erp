@@ -6,6 +6,7 @@ import {
   ChevronsUpDown,
   ClipboardCheck,
   ClipboardList,
+  Contact,
   Coins,
   Gem,
   HandCoins,
@@ -54,6 +55,10 @@ const NAV: { title?: string; items: NavItem[] }[] = [
     ],
   },
   {
+    title: 'Clientes',
+    items: [{ to: '/clientes', label: 'Clientes', icon: Contact, can: 'customers.read' }],
+  },
+  {
     title: 'Inventario',
     items: [
       { to: '/inventario/stock', label: 'Stock por sede', icon: Boxes, can: 'inventory.read' },
@@ -84,7 +89,7 @@ const NAV: { title?: string; items: NavItem[] }[] = [
 ];
 
 // módulos que vienen, para que se vea el camino (deshabilitados)
-const SOON = ['Ventas', 'Compras', 'Caja', 'Clientes'];
+const SOON = ['Ventas', 'Compras', 'Caja'];
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { can } = useSession();

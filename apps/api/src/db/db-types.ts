@@ -27,6 +27,10 @@ export type CatalogTagKind = "campaign" | "occasion" | "other" | "style" | "them
 
 export type CatalogTrackingMode = "quantity" | "serial";
 
+export type CoreCustomerKind = "company" | "person";
+
+export type CoreDocumentType = "ce" | "dni" | "none" | "passport" | "ruc";
+
 export type CoreLocationKind = "consignment" | "distribution" | "office" | "purchasing" | "store" | "virtual" | "warehouse" | "workshop";
 
 export type CoreUnitKind = "count" | "length" | "mass" | "time";
@@ -525,6 +529,31 @@ export interface CoreCurrency {
   symbol: string;
 }
 
+export interface CoreCustomer {
+  address_line: string | null;
+  birth_date: Timestamp | null;
+  city: string | null;
+  code: Generated<string>;
+  created_at: Generated<Timestamp>;
+  created_by: Int8 | null;
+  document_number: string | null;
+  /**
+   * "none" es el cliente de vitrina sin documento: no se deduplica, a propósito.
+   */
+  document_type: Generated<CoreDocumentType>;
+  email: string | null;
+  id: Generated<Int8>;
+  is_active: Generated<boolean>;
+  kind: Generated<CoreCustomerKind>;
+  legacy_code: string | null;
+  name: string;
+  notes: string | null;
+  phone: string | null;
+  phone_alt: string | null;
+  trade_name: string | null;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface CoreLocation {
   address_line: string | null;
   allows_negative_stock: Generated<boolean>;
@@ -632,6 +661,28 @@ export interface CoreUserSession {
   user_id: Int8;
 }
 
+export interface CoreVCustomer360 {
+  birth_date: Timestamp | null;
+  city: string | null;
+  code: string | null;
+  custody_open: Int8 | null;
+  custody_total: Int8 | null;
+  customer_id: Int8 | null;
+  document_number: string | null;
+  document_type: CoreDocumentType | null;
+  email: string | null;
+  is_active: boolean | null;
+  kind: CoreCustomerKind | null;
+  last_activity: Timestamp | null;
+  layaway_active: Int8 | null;
+  layaway_paid: Numeric | null;
+  layaway_total: Int8 | null;
+  name: string | null;
+  open_items: Int8 | null;
+  phone: string | null;
+  trade_name: string | null;
+}
+
 export interface CoreVUserAccess {
   can_log_in: boolean | null;
   full_name: string | null;
@@ -721,9 +772,10 @@ export interface InventoryMovementReason {
 
 export interface InventoryReservation {
   created_by: Int8;
-  customer_id: Int8 | null;
-  customer_name: string | null;
-  customer_phone: string | null;
+  /**
+   * El cliente del apartado. Antes era texto libre; ahora es core.customer.
+   */
+  customer_id: Int8;
   deposit_amount: Numeric | null;
   deposit_currency: string | null;
   expires_at: Timestamp | null;
@@ -940,11 +992,12 @@ export interface OpsCustodyItem {
   code: string;
   condition_notes: string | null;
   created_at: Generated<Timestamp>;
-  customer_document: string | null;
-  customer_name: string;
-  customer_phone: string | null;
+  customer_id: Int8;
   delivered_at: Timestamp | null;
   delivered_by: Int8 | null;
+  /**
+   * Quién retiró la pieza en el mostrador. Puede no ser el cliente (customer_id).
+   */
   delivered_to: string | null;
   delivered_weight_g: Numeric | null;
   description: string;
@@ -1261,6 +1314,7 @@ export interface DB {
   "core.app_user": CoreAppUser;
   "core.audit_log": CoreAuditLog;
   "core.currency": CoreCurrency;
+  "core.customer": CoreCustomer;
   "core.location": CoreLocation;
   "core.permission": CorePermission;
   "core.role": CoreRole;
@@ -1270,6 +1324,7 @@ export interface DB {
   "core.unit": CoreUnit;
   "core.user_role": CoreUserRole;
   "core.user_session": CoreUserSession;
+  "core.v_customer_360": CoreVCustomer360;
   "core.v_user_access": CoreVUserAccess;
   "inventory.certification": InventoryCertification;
   "inventory.count_line": InventoryCountLine;
