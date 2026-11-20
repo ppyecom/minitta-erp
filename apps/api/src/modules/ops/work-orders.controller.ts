@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, NotFoundException, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { sql } from 'kysely';
 import { z } from 'zod';
 import {
@@ -10,12 +10,14 @@ import {
 } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, paging, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 /**
  * Órdenes de taller. El cierre pasa SIEMPRE por ops.close_work_order(), que
  * valida el cuadre de gramos y la aprobación de la merma: un UPDATE directo
  * sobre el estado saltearía el control.
  */
+@Requires('inventory.read')
 @Controller('ops/work-orders')
 export class WorkOrdersController {
   constructor(private readonly dbs: DbService) {}
@@ -104,6 +106,7 @@ export class WorkOrdersController {
     return { ...w, inputs: inputs.rows, outputs: outputs.rows, losses: losses.rows };
   }
 
+  @Requires('ops.workshop')
   @Post()
   create(@CurrentUser() u: SessionUser, @Body(zod(workOrderInput)) b: WorkOrderInput) {
     return this.dbs.tx(u, async (trx) => {
@@ -121,6 +124,7 @@ export class WorkOrdersController {
     });
   }
 
+  @Requires('ops.workshop')
   @Post(':id/inputs')
   addInput(
     @CurrentUser() u: SessionUser,
@@ -136,6 +140,7 @@ export class WorkOrdersController {
     );
   }
 
+  @Requires('ops.workshop')
   @Post(':id/outputs')
   addOutput(
     @CurrentUser() u: SessionUser,
@@ -151,6 +156,7 @@ export class WorkOrdersController {
     );
   }
 
+  @Requires('ops.workshop')
   @Post(':id/losses')
   addLoss(
     @CurrentUser() u: SessionUser,
@@ -167,10 +173,11 @@ export class WorkOrdersController {
   }
 
   /**
-   * Firma de la merma que supera el estándar. Hoy NO se valida que firme un usuario
-   * distinto del que la cargó: con la sesión por cabecera x-user-id esa validación
-   * sería decorativa. Se agrega cuando exista el login (ver docs/08 §7).
+   * Firma de la merma que supera el estándar. La regla de que firme otro ya no es
+   * decorativa: con el login real, la restricción wo_loss_approver_is_someone_else
+   * (012) la impone en la base. Acá sólo se traduce a un mensaje entendible.
    */
+  @Requires('ops.loss.approve')
   @Post(':id/losses/:lossId/approve')
   approveLoss(
     @CurrentUser() u: SessionUser,
@@ -178,6 +185,18 @@ export class WorkOrdersController {
     @Param('lossId', ParseIntPipe) lossId: number,
   ) {
     return this.dbs.tx(u, async (trx) => {
+      const loss = await trx
+        .selectFrom('ops.work_order_loss')
+        .select('created_by')
+        .where('id', '=', lossId)
+        .where('work_order_id', '=', id)
+        .executeTakeFirst();
+      if (!loss) throw new NotFoundException('No existe esa merma en la orden');
+      if (loss.created_by === u.id) {
+        throw new ForbiddenException(
+          'La merma la tiene que firmar otra persona: usted fue quien la cargó.',
+        );
+      }
       await trx
         .updateTable('ops.work_order_loss')
         .set({ approved_by: u.id, approved_at: new Date() })
@@ -188,6 +207,7 @@ export class WorkOrdersController {
     });
   }
 
+  @Requires('ops.workshop')
   @Post(':id/start')
   start(@CurrentUser() u: SessionUser, @Param('id', ParseIntPipe) id: number) {
     return this.dbs.tx(u, async (trx) => {
@@ -197,6 +217,7 @@ export class WorkOrdersController {
   }
 
   /** Acá se valida el cuadre de gramos. Si no cuadra, la base lo rechaza. */
+  @Requires('ops.workshop')
   @Post(':id/close')
   close(@CurrentUser() u: SessionUser, @Param('id', ParseIntPipe) id: number) {
     return this.dbs.tx(u, async (trx) => {
@@ -205,6 +226,7 @@ export class WorkOrdersController {
     });
   }
 
+  @Requires('ops.workshop')
   @Post(':id/cancel')
   cancel(
     @CurrentUser() u: SessionUser,

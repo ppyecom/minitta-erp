@@ -16,7 +16,9 @@ inventario. El diagnóstico completo, con ejemplos de las filas reales, está en
 
 Doble clic en **`Iniciar ERP.cmd`**: arranca PostgreSQL, compila si hace falta y abre
 <http://localhost:3000>. Cerrar la ventana lo detiene. La primera vez pide crear el usuario
-administrador.
+administrador **con su contraseña**; después, cada uno entra con la suya y todo lo que
+registra queda firmado con su nombre. Ese administrador es el que da de alta al resto y les
+asigna un rol, en *Ajustes → Usuarios y accesos*.
 
 Para trabajar en el código, con recarga en vivo al guardar:
 
@@ -113,24 +115,37 @@ ningún parámetro posicional»):
 .\db\apply.ps1 minitta_erp_test -Port 5433 -Recreate -SmokeTest -Drop
 ```
 
-Eso crea una base limpia, aplica el esquema, corre `db/999_smoke_test.sql` y la borra.
-Sobre una base que ya está aplicada, la prueba de humo sola:
+Eso crea una base limpia, aplica el esquema, corre las cuatro pruebas de humo (`db/99*.sql`)
+y la borra. Sobre una base que ya está aplicada, una sola:
 
 ```bash
 psql -v ON_ERROR_STOP=1 -d minitta_erp -f db/999_smoke_test.sql
 ```
 
-Cubre: un producto con 5 variantes y 100 piedras, precio manual vs. calculado por peso, dos
-piezas serializadas con pesos reales distintos, una pieza que sale al taller, kardex con
-saldo corrido, un apartado, un inventario físico de apertura, sugerencia de reposición,
-reconstrucción del saldo desde cero, auditoría automática, y **6 reglas que deben
-rechazarse** (vender más de lo que hay, mover 2 unidades de una pieza única, mover una
-serializada sin indicar cuál, cargar stock en una oficina, y editar o borrar un movimiento
-del kardex).
+Qué cubre cada una:
+
+| | |
+|---|---|
+| `996_smoke_auth.sql` | roles y permisos: cada rol puede lo suyo, el admin hereda los permisos nuevos, las sesiones se revocan. **4 reglas que deben rechazarse** |
+| `997_smoke_pendientes.sql` | la lista de trabajo: qué le falta a cada variante, y que sale sola al completarse |
+| `998_smoke_ops.sql` | custodia, taller con cuadre de gramos, consignación y apartados. **7 reglas que deben rechazarse** |
+| `999_smoke_test.sql` | un producto con 5 variantes y 100 piedras, precio manual vs. calculado por peso, piezas serializadas con pesos reales, una pieza en el taller, kardex con saldo corrido, apartado, inventario de apertura, reposición, reconstrucción del saldo y auditoría. **6 reglas que deben rechazarse** |
+
+Son **17 reglas** que tienen que decir `RECHAZADO`: vender más de lo que hay, mover 2 unidades
+de una pieza única, editar o borrar un movimiento del kardex, cerrar una orden de taller sin
+que cuadren los gramos, convertir la pieza de un cliente en stock nuestro, firmarse la propia
+merma…
+
+Y la prueba de punta a punta de la API, que levanta el servidor contra una base desechable y
+recorre el login completo (38 chequeos):
+
+```bash
+npm run test:auth
+```
 
 ---
 
-## Las 3 reglas que no se rompen
+## Las 4 reglas que no se rompen
 
 1. **El stock no se escribe.** `inventory.stock` es caché de `inventory.movement`.
    `inventory.rebuild_stock()` lo reconstruye y `inventory.v_stock_integrity` debe devolver
@@ -139,8 +154,11 @@ del kardex).
    un `UPDATE`. Los triggers lo impiden.
 3. **La app no inserta movimientos a mano.** Llama a `inventory.post_movement(...)` y a las
    funciones de transferencia y conteo, que validan y dejan rastro.
+4. **El usuario no se declara, se autentica.** Sale de la cookie de sesión, nunca de un dato
+   que manda el cliente. Todo endpoint pide sesión por omisión y los permisos se preguntan
+   siempre con `core.user_can()`. Ver [docs/10](docs/10-login-y-permisos.md).
 
-Contexto que la app debe setear en cada sesión:
+Contexto que la app debe setear en cada sesión de base de datos:
 
 ```sql
 SET LOCAL app.user_id = '42';
@@ -207,6 +225,7 @@ regla.
 | [07 — Instalar y migrar](docs/07-instalar-y-migrar.md) | paso a paso en la PC que llega al servidor viejo |
 | [08 — Procesos](docs/08-procesos.md) | custodia, taller con cuadre de gramos, consignación, apartados |
 | [09 — La carga única](docs/09-carga-unica.md) | el corte del ERP viejo al nuevo, paso a paso |
+| [10 — Login y permisos](docs/10-login-y-permisos.md) | sesiones, contraseñas, los 22 permisos y los 6 roles |
 
 ---
 

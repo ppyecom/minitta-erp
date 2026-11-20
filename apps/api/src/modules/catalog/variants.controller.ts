@@ -24,6 +24,7 @@ import {
 } from '@minitta/shared';
 import { DbService, SessionUser, Tx } from '../../db/db.service';
 import { CurrentUser, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 const costInput = z.object({
   metal_cost: optNonNeg,
@@ -36,6 +37,7 @@ const costInput = z.object({
   notes: optText,
 });
 
+@Requires('catalog.read')
 @Controller()
 export class VariantsController {
   constructor(private readonly dbs: DbService) {}
@@ -59,6 +61,7 @@ export class VariantsController {
     return r.rows;
   }
 
+  @Requires('catalog.write')
   @Post('products/:productId/variants')
   create(
     @CurrentUser() u: SessionUser,
@@ -82,6 +85,7 @@ export class VariantsController {
     });
   }
 
+  @Requires('catalog.write')
   @Put('variants/:id')
   update(
     @CurrentUser() u: SessionUser,
@@ -123,6 +127,7 @@ export class VariantsController {
   }
 
   // ---- piedras ---------------------------------------------------------------
+  @Requires('catalog.write')
   @Post('variants/:id/stones')
   addStone(
     @CurrentUser() u: SessionUser,
@@ -139,6 +144,7 @@ export class VariantsController {
     });
   }
 
+  @Requires('catalog.write')
   @Put('variant-stones/:id')
   updateStone(
     @CurrentUser() u: SessionUser,
@@ -157,6 +163,7 @@ export class VariantsController {
     });
   }
 
+  @Requires('catalog.write')
   @Delete('variant-stones/:id')
   async removeStone(@CurrentUser() u: SessionUser, @Param('id', ParseIntPipe) id: number) {
     await this.dbs.tx(u, (trx) => trx.deleteFrom('catalog.variant_stone').where('id', '=', id).execute());
@@ -170,6 +177,7 @@ export class VariantsController {
   }
 
   // ---- precios: nunca se sobrescriben, se cierra el vigente y se abre otro ------
+  @Requires('pricing.write')
   @Post('variants/:id/prices')
   setPrice(
     @CurrentUser() u: SessionUser,
@@ -208,6 +216,7 @@ export class VariantsController {
     });
   }
 
+  @Requires('pricing.write')
   @Delete('prices/:id')
   async closePrice(@CurrentUser() u: SessionUser, @Param('id', ParseIntPipe) id: number) {
     await this.dbs.tx(u, (trx) =>
@@ -229,7 +238,8 @@ export class VariantsController {
       .then((r) => r.rows);
   }
 
-  // ---- costo (solo usuarios con can_see_cost) ---------------------------------
+  // ---- costo (exige el permiso cost.write, lo verifica AuthGuard) ------------
+  @Requires('cost.write')
   @Post('variants/:id/cost')
   setCost(
     @CurrentUser() u: SessionUser,
@@ -237,10 +247,6 @@ export class VariantsController {
     @Body(zod(costInput)) body: z.infer<typeof costInput>,
   ) {
     return this.dbs.tx(u, async (trx) => {
-      const me = await trx.selectFrom('core.app_user').select('can_see_cost').where('id', '=', u.id).executeTakeFirst();
-      if (!me?.can_see_cost) {
-        throw new ForbiddenException('Su usuario no tiene permiso para ver ni editar costos');
-      }
       await trx
         .updateTable('pricing.variant_cost')
         .set({ valid_to: sql`now()` })

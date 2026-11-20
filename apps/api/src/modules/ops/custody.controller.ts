@@ -4,12 +4,14 @@ import { z } from 'zod';
 import { CustodyInput, custodyDeliverInput, custodyInput, custodyMoveInput } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, paging, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 /**
  * Custodia: piezas de clientes. NO son inventario y no tienen variante — por eso
  * no pueden aparecer en inventory.movement. Toda la trazabilidad vive en
  * ops.custody_event, que es append-only.
  */
+@Requires('inventory.read')
 @Controller('ops/custody')
 export class CustodyController {
   constructor(private readonly dbs: DbService) {}
@@ -83,6 +85,7 @@ export class CustodyController {
     return { ...item, events: events.rows, work_orders: orders.rows };
   }
 
+  @Requires('ops.custody')
   @Post()
   create(@CurrentUser() u: SessionUser, @Body(zod(custodyInput)) b: CustodyInput) {
     return this.dbs.tx(u, async (trx) => {
@@ -102,6 +105,7 @@ export class CustodyController {
   }
 
   /** Mover la pieza (al taller, a otra sede): escribe el eslabón de la cadena. */
+  @Requires('ops.custody')
   @Post(':id/move')
   move(
     @CurrentUser() u: SessionUser,
@@ -117,6 +121,7 @@ export class CustodyController {
   }
 
   /** Entrega al cliente: exige el peso de salida y cierra la cadena. */
+  @Requires('ops.custody')
   @Post(':id/deliver')
   deliver(
     @CurrentUser() u: SessionUser,

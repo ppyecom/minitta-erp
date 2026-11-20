@@ -3,7 +3,9 @@ import { sql } from 'kysely';
 import { MOVEMENT_SIGN, MovementInput, movementInput, stockLimitsInput } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, paging, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
+@Requires('inventory.read')
 @Controller()
 export class StockController {
   constructor(private readonly dbs: DbService) {}
@@ -37,6 +39,7 @@ export class StockController {
   }
 
   /** Mínimo y máximo por sede: es configuración, no saldo (el saldo no se escribe). */
+  @Requires('inventory.move')
   @Put('stock/:variantId/:locationId/limits')
   limits(
     @CurrentUser() u: SessionUser,
@@ -88,6 +91,7 @@ export class StockController {
    * Registra un movimiento con inventory.post_movement() (regla 3: la app no
    * inserta en el kardex a mano). El signo lo fija el tipo, salvo en ajustes.
    */
+  @Requires('inventory.move')
   @Post('movements')
   post(@CurrentUser() u: SessionUser, @Body(zod(movementInput)) b: MovementInput) {
     const sign = MOVEMENT_SIGN[b.type];

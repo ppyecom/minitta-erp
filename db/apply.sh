@@ -52,7 +52,10 @@ CONN=(-h "$PGH" -p "$PGP" -U "$PGU")
 # no pueden correr dentro de una transacción. Por eso cada uno va en su propia
 # invocación, siempre con un solo -c.
 maintenance() {
-  psql "${CONN[@]}" -v ON_ERROR_STOP=1 -d postgres -q -c "$1"
+  # el aviso de DROP DATABASE IF EXISTS no aporta nada; las migraciones y las
+  # pruebas de humo sí muestran sus NOTICE, por eso se baja el nivel sólo acá
+  PGOPTIONS='-c client_min_messages=warning' \
+    psql "${CONN[@]}" -v ON_ERROR_STOP=1 -d postgres -q -c "$1"
 }
 
 db_exists() {

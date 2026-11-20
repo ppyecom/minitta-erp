@@ -16,6 +16,7 @@
     "db:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pg.ps1 stop",
     "db:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pg.ps1 status",
     "db:types": "npm run db:types -w @minitta/api",
+    "test:auth": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/e2e-auth.ps1",
     "export:legacy": "node db/migration/021_export_from_sqlserver.js",
     "check:legacy": "node db/migration/021_export_from_sqlserver.js --check",
     "migrate:legacy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/migrar.ps1"

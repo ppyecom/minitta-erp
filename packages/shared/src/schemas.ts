@@ -404,3 +404,49 @@ export const layawayPaymentInput = z.object({
   receipt_no: optText,
   notes: optText,
 });
+
+// ---- login, roles y permisos ------------------------------------------------
+export const loginInput = z.object({
+  username: reqText.max(40),
+  password: z.string().min(1, 'Escriba su contraseña'),
+  // la estación de trabajo queda en la auditoría (reemplaza PC_REGISTRO del legacy)
+  station: optText,
+});
+export type LoginInput = z.infer<typeof loginInput>;
+
+/** Mínimo de la contraseña. Corto a propósito: es un ERP interno, no un banco. */
+const password = z.string().min(8, 'Mínimo 8 caracteres').max(200);
+
+export const changePasswordInput = z.object({
+  current_password: z.string().min(1, 'Escriba su contraseña actual'),
+  new_password: password,
+});
+export type ChangePasswordInput = z.infer<typeof changePasswordInput>;
+
+/** Un administrador le pone una clave a otro: el dueño la cambia al entrar. */
+export const resetPasswordInput = z.object({
+  new_password: password,
+});
+export type ResetPasswordInput = z.infer<typeof resetPasswordInput>;
+
+/** Primer usuario del sistema: se permite una sola vez, con la base vacía. */
+export const bootstrapInput = z.object({
+  username: reqText.max(40),
+  full_name: reqText,
+  password,
+});
+export type BootstrapInput = z.infer<typeof bootstrapInput>;
+
+export const userRolesInput = z.object({
+  role_ids: z.array(z.coerce.number().int().positive()),
+});
+export type UserRolesInput = z.infer<typeof userRolesInput>;
+
+export const roleInput = z.object({
+  code: reqText.max(40).regex(/^[a-z][a-z0-9_]*$/, 'Sólo minúsculas, números y _'),
+  name: reqText,
+  description: optText,
+  is_active: z.boolean().default(true),
+  permission_ids: z.array(z.coerce.number().int().positive()).default([]),
+});
+export type RoleInput = z.infer<typeof roleInput>;

@@ -4,8 +4,10 @@ import { z } from 'zod';
 import { categoryInput, materialInput, simpleCodeInput, stoneInput } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 /** Tablas maestras del catálogo: piedras, materiales, categorías, colores, acabados. */
+@Requires('catalog.read')
 @Controller('masters')
 export class MastersController {
   constructor(private readonly dbs: DbService) {}
@@ -22,6 +24,7 @@ export class MastersController {
   }
 
   // ---- piedras ----------------------------------------------------------------
+  @Requires('catalog.masters')
   @Post('stones')
   createStone(@CurrentUser() u: SessionUser, @Body(zod(stoneInput)) b: z.infer<typeof stoneInput>) {
     return this.dbs.tx(u, (trx) =>
@@ -29,6 +32,7 @@ export class MastersController {
     );
   }
 
+  @Requires('catalog.masters')
   @Put('stones/:id')
   updateStone(
     @CurrentUser() u: SessionUser,
@@ -41,6 +45,7 @@ export class MastersController {
   }
 
   // ---- materiales ---------------------------------------------------------------
+  @Requires('catalog.masters')
   @Post('materials')
   createMaterial(@CurrentUser() u: SessionUser, @Body(zod(materialInput)) b: z.infer<typeof materialInput>) {
     return this.dbs.tx(u, (trx) =>
@@ -48,6 +53,7 @@ export class MastersController {
     );
   }
 
+  @Requires('catalog.masters')
   @Put('materials/:id')
   updateMaterial(
     @CurrentUser() u: SessionUser,
@@ -60,6 +66,7 @@ export class MastersController {
   }
 
   // ---- categorías (árbol ltree) ---------------------------------------------------
+  @Requires('catalog.masters')
   @Post('categories')
   createCategory(@CurrentUser() u: SessionUser, @Body(zod(categoryInput)) b: z.infer<typeof categoryInput>) {
     return this.dbs.tx(u, async (trx) => {
@@ -76,6 +83,7 @@ export class MastersController {
     });
   }
 
+  @Requires('catalog.masters')
   @Put('categories/:id')
   updateCategory(
     @CurrentUser() u: SessionUser,
@@ -93,6 +101,7 @@ export class MastersController {
   }
 
   // ---- tablas de código + nombre ------------------------------------------------------
+  @Requires('catalog.masters')
   @Post('colors')
   createColor(@CurrentUser() u: SessionUser, @Body(zod(simpleCodeInput)) b: z.infer<typeof simpleCodeInput>) {
     return this.dbs.tx(u, (trx) =>
@@ -100,6 +109,7 @@ export class MastersController {
     );
   }
 
+  @Requires('catalog.masters')
   @Post('metal-colors')
   createMetalColor(@CurrentUser() u: SessionUser, @Body(zod(simpleCodeInput)) b: z.infer<typeof simpleCodeInput>) {
     return this.dbs.tx(u, (trx) =>
@@ -107,6 +117,7 @@ export class MastersController {
     );
   }
 
+  @Requires('catalog.masters')
   @Post('finishes')
   createFinish(@CurrentUser() u: SessionUser, @Body(zod(simpleCodeInput)) b: z.infer<typeof simpleCodeInput>) {
     return this.dbs.tx(u, (trx) =>
@@ -114,6 +125,7 @@ export class MastersController {
     );
   }
 
+  @Requires('catalog.masters')
   @Post('stone-cuts')
   createCut(@CurrentUser() u: SessionUser, @Body(zod(simpleCodeInput)) b: z.infer<typeof simpleCodeInput>) {
     return this.dbs.tx(u, (trx) =>
@@ -121,6 +133,7 @@ export class MastersController {
     );
   }
 
+  @Requires('catalog.masters')
   @Post('setting-types')
   createSetting(@CurrentUser() u: SessionUser, @Body(zod(simpleCodeInput)) b: z.infer<typeof simpleCodeInput>) {
     return this.dbs.tx(u, (trx) =>
@@ -128,6 +141,7 @@ export class MastersController {
     );
   }
 
+  @Requires('catalog.masters')
   @Post('collections')
   createCollection(@CurrentUser() u: SessionUser, @Body(zod(simpleCodeInput)) b: z.infer<typeof simpleCodeInput>) {
     return this.dbs.tx(u, (trx) =>
@@ -135,6 +149,7 @@ export class MastersController {
     );
   }
 
+  @Requires('catalog.masters')
   @Post('tags')
   createTag(@CurrentUser() u: SessionUser, @Body(zod(simpleCodeInput)) b: z.infer<typeof simpleCodeInput>) {
     return this.dbs.tx(u, (trx) =>

@@ -224,10 +224,10 @@ export function ProductDetailPage() {
   const [sp, setSp] = useSearchParams();
   const tab = sp.get('tab') ?? 'variantes';
   const { data: lk } = useLookups();
-  const { userId } = useSession();
+  const { user } = useSession();
   const { data: p, isLoading } = useQuery({
     // el usuario va en la clave: de él depende si se ven los costos
-    queryKey: ['product', id, userId],
+    queryKey: ['product', id, user?.id],
     queryFn: () => api.get<ProductDetail>(`/products/${id}`),
   });
   const [variantId, setVariantId] = useState<number | null | undefined>(undefined);

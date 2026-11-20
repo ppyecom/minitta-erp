@@ -2,6 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { sql } from 'kysely';
 import { DbService } from '../../db/db.service';
 import { paging } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 /**
  * Lista de trabajo del personal: qué le falta a cada artículo.
@@ -10,6 +11,7 @@ import { paging } from '../../common/http';
  * No consulta el esquema `migration`: una variante sale de la lista en cuanto
  * alguien completa el dato, sin que nadie tenga que marcarla como resuelta.
  */
+@Requires('catalog.read')
 @Controller('pending')
 export class PendingController {
   constructor(private readonly dbs: DbService) {}

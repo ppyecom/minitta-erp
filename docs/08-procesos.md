@@ -136,12 +136,12 @@ Termina en `ROLLBACK`: no deja datos. Corre junto con `999_smoke_test.sql` desde
 
 ## 7. Lo que todavía falta
 
-- **El login**. Estos procesos registran *quién* hizo cada cosa, pero hasta que exista
-  autenticación real ese "quién" es la cabecera `x-user-id`, que cualquiera puede escribir.
-  Para la operación diaria alcanza; para una discusión seria por gramos faltantes, no.
-- **Que la merma la firme otro**. La aprobación existe, pero hoy no se valida que el
-  aprobador sea distinto del que cargó la merma: con la sesión por cabecera `x-user-id`
-  esa validación sería decorativa. Va junto con el login.
+- ~~**El login**~~ **Hecho** (migración `012`, ver [docs/10](10-login-y-permisos.md)). El
+  "quién" ya no es la cabecera `x-user-id` que cualquiera podía escribir: sale de la sesión
+  autenticada. Esa discusión por gramos faltantes ahora se puede tener.
+- ~~**Que la merma la firme otro**~~ **Hecho**, y de forma estructural: la restricción
+  `wo_loss_approver_is_someone_else` impide aprobarse la propia merma desde cualquier lado,
+  y hace falta el permiso `ops.loss.approve`, que `vendedor` y `taller` no tienen.
 - **La firma del cliente en papel**. `delivered_to` guarda el nombre; falta adjuntar la
   foto de la boleta firmada.
 

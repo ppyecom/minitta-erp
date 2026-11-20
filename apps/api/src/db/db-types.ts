@@ -420,6 +420,25 @@ export interface CatalogVariantStone {
   width_mm: Numeric | null;
 }
 
+export interface CatalogVPending {
+  blocks_sale: boolean | null;
+  category_name: string | null;
+  image_url: string | null;
+  legacy_code: string | null;
+  legacy_flags: Json | null;
+  material_name: string | null;
+  price: Numeric | null;
+  product_code: string | null;
+  product_id: Int8 | null;
+  product_name: string | null;
+  product_status: CatalogProductStatus | null;
+  reasons: string[] | null;
+  sku: string | null;
+  variant_id: Int8 | null;
+  variant_status: CatalogProductStatus | null;
+  weight_g: Numeric | null;
+}
+
 export interface CatalogVVariantFull {
   barcode: string | null;
   category_name: string | null;
@@ -461,10 +480,25 @@ export interface CoreAppUser {
   created_at: Generated<Timestamp>;
   document_id: string | null;
   email: string | null;
+  failed_attempts: Generated<number>;
   full_name: string;
   id: Generated<Int8>;
   is_active: Generated<boolean>;
   is_system: Generated<boolean>;
+  last_login_at: Timestamp | null;
+  /**
+   * Bloqueo temporal por intentos fallidos. Lo levanta el tiempo o un administrador.
+   */
+  locked_until: Timestamp | null;
+  /**
+   * La clave la puso un administrador: se exige cambiarla al primer ingreso.
+   */
+  must_change_password: Generated<boolean>;
+  /**
+   * scrypt$N$r$p$salt_b64$hash_b64. NULL = el usuario todavía no puede entrar.
+   */
+  password_hash: string | null;
+  password_set_at: Timestamp | null;
   updated_at: Generated<Timestamp>;
   username: string;
 }
@@ -517,6 +551,32 @@ export interface CoreLocation {
   updated_at: Generated<Timestamp>;
 }
 
+export interface CorePermission {
+  code: string;
+  description: string | null;
+  id: Generated<Int8>;
+  module: string;
+  name: string;
+  sort_order: Generated<number>;
+}
+
+export interface CoreRole {
+  code: string;
+  created_at: Generated<Timestamp>;
+  description: string | null;
+  id: Generated<Int8>;
+  is_active: Generated<boolean>;
+  is_system: Generated<boolean>;
+  name: string;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface CoreRolePermission {
+  id: Generated<Int8>;
+  permission_id: Int8;
+  role_id: Int8;
+}
+
 export interface CoreSupplier {
   address_line: string | null;
   code: string;
@@ -549,6 +609,41 @@ export interface CoreUnit {
   factor_to_base: Generated<Numeric>;
   kind: CoreUnitKind;
   name: string;
+}
+
+export interface CoreUserRole {
+  granted_at: Generated<Timestamp>;
+  granted_by: Int8 | null;
+  id: Generated<Int8>;
+  role_id: Int8;
+  user_id: Int8;
+}
+
+export interface CoreUserSession {
+  client_info: string | null;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  id: Generated<Int8>;
+  ip: string | null;
+  last_seen_at: Generated<Timestamp>;
+  revoked_at: Timestamp | null;
+  revoked_by: Int8 | null;
+  token_hash: string;
+  user_id: Int8;
+}
+
+export interface CoreVUserAccess {
+  can_log_in: boolean | null;
+  full_name: string | null;
+  is_active: boolean | null;
+  is_locked: boolean | null;
+  is_system: boolean | null;
+  last_login_at: Timestamp | null;
+  must_change_password: boolean | null;
+  open_sessions: number | null;
+  roles: string[] | null;
+  user_id: Int8 | null;
+  username: string | null;
 }
 
 export interface InventoryCertification {
@@ -1156,6 +1251,7 @@ export interface DB {
   "catalog.stone": CatalogStone;
   "catalog.stone_cut": CatalogStoneCut;
   "catalog.tag": CatalogTag;
+  "catalog.v_pending": CatalogVPending;
   "catalog.v_variant_full": CatalogVVariantFull;
   "catalog.variant": CatalogVariant;
   "catalog.variant_attribute_value": CatalogVariantAttributeValue;
@@ -1166,9 +1262,15 @@ export interface DB {
   "core.audit_log": CoreAuditLog;
   "core.currency": CoreCurrency;
   "core.location": CoreLocation;
+  "core.permission": CorePermission;
+  "core.role": CoreRole;
+  "core.role_permission": CoreRolePermission;
   "core.supplier": CoreSupplier;
   "core.tax_category": CoreTaxCategory;
   "core.unit": CoreUnit;
+  "core.user_role": CoreUserRole;
+  "core.user_session": CoreUserSession;
+  "core.v_user_access": CoreVUserAccess;
   "inventory.certification": InventoryCertification;
   "inventory.count_line": InventoryCountLine;
   "inventory.count_serial": InventoryCountSerial;

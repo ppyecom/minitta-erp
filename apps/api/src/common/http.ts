@@ -29,17 +29,19 @@ export class ZodPipe<S extends ZodTypeAny> implements PipeTransform {
 export const zod = <S extends ZodTypeAny>(schema: S) => new ZodPipe(schema);
 
 /**
- * Usuario de la sesión. Hasta que exista el login, la interfaz manda el usuario
- * elegido en el selector como cabecera x-user-id. Se exige en toda escritura.
+ * Usuario de la sesión, puesto por AuthGuard a partir de la cookie. Antes salía
+ * de la cabecera x-user-id, que el navegador elegía: cualquiera firmaba como
+ * cualquiera. Los controladores no cambiaron, sólo de dónde sale el usuario.
+ *
+ * Si esto lanza, es que el endpoint se declaró @Public() y aun así pide el
+ * usuario: es un error de programación, no del que llama.
  */
 export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext): SessionUser => {
-  const req = ctx.switchToHttp().getRequest<Request>();
-  const id = Number(req.header('x-user-id'));
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new UnauthorizedException('Elija un usuario en la barra superior antes de guardar.');
+  const req = ctx.switchToHttp().getRequest<Request & { user?: SessionUser }>();
+  if (!req.user) {
+    throw new UnauthorizedException('Su sesión venció. Vuelva a ingresar.');
   }
-  const station = req.header('x-client-info');
-  return { id, clientInfo: station ? `erp-web / ${station}` : 'erp-web' };
+  return req.user;
 });
 
 export function paging(q: Record<string, unknown>, def = 25) {

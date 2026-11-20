@@ -15,12 +15,14 @@ import { z } from 'zod';
 import { countLineInput, countOpenInput } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, paging, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 /**
  * Inventario físico (decisión 5: así arranca el stock). Se abre con
  * open_count_sheet(), se cuenta línea por línea y apply_count_sheet() convierte
  * cada diferencia en un movimiento firmado.
  */
+@Requires('inventory.read')
 @Controller('counts')
 export class CountsController {
   constructor(private readonly dbs: DbService) {}
@@ -44,6 +46,7 @@ export class CountsController {
       .then((r) => r.rows);
   }
 
+  @Requires('inventory.count')
   @Post()
   open(@CurrentUser() u: SessionUser, @Body(zod(countOpenInput)) b: z.infer<typeof countOpenInput>) {
     return this.dbs.tx(u, async (trx) => {
@@ -107,6 +110,7 @@ export class CountsController {
     return { ...sheet, summary, lines: { items: lines, total: total.rows[0].n, page, pageSize } };
   }
 
+  @Requires('inventory.count')
   @Put(':id/lines/:lineId')
   setLine(
     @CurrentUser() u: SessionUser,
@@ -145,6 +149,7 @@ export class CountsController {
     });
   }
 
+  @Requires('inventory.count.apply')
   @Post(':id/apply')
   apply(@CurrentUser() u: SessionUser, @Param('id', ParseIntPipe) id: number) {
     return this.dbs.tx(u, async (trx) => {
@@ -153,6 +158,7 @@ export class CountsController {
     });
   }
 
+  @Requires('inventory.count.apply')
   @Post(':id/cancel')
   cancel(@CurrentUser() u: SessionUser, @Param('id', ParseIntPipe) id: number) {
     return this.dbs.tx(u, async (trx) => {

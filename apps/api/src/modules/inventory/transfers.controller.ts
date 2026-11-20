@@ -14,8 +14,10 @@ import { z } from 'zod';
 import { TransferInput, receiveInput, transferInput } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, paging, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 /** Transferencias entre sedes: borrador → enviada (send_transfer) → recibida (receive_transfer). */
+@Requires('inventory.read')
 @Controller('transfers')
 export class TransfersController {
   constructor(private readonly dbs: DbService) {}
@@ -72,6 +74,7 @@ export class TransfersController {
     return { ...t, lines };
   }
 
+  @Requires('inventory.transfer')
   @Post()
   create(@CurrentUser() u: SessionUser, @Body(zod(transferInput)) b: TransferInput) {
     if (b.from_location_id === b.to_location_id) {
@@ -98,6 +101,7 @@ export class TransfersController {
     });
   }
 
+  @Requires('inventory.transfer')
   @Post(':id/send')
   send(@CurrentUser() u: SessionUser, @Param('id', ParseIntPipe) id: number) {
     return this.dbs.tx(u, async (trx) => {
@@ -107,6 +111,7 @@ export class TransfersController {
   }
 
   /** Recepción: lo que no llegó queda como ajuste en origen (lo hace receive_transfer). */
+  @Requires('inventory.transfer')
   @Post(':id/receive')
   receive(
     @CurrentUser() u: SessionUser,
@@ -127,6 +132,7 @@ export class TransfersController {
     });
   }
 
+  @Requires('inventory.transfer')
   @Post(':id/cancel')
   cancel(@CurrentUser() u: SessionUser, @Param('id', ParseIntPipe) id: number) {
     return this.dbs.tx(u, async (trx) => {

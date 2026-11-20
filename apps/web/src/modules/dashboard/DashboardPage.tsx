@@ -81,10 +81,10 @@ function Kpi({
 
 export function DashboardPage() {
   const nav = useNavigate();
-  const { userId } = useSession();
+  const { user: me } = useSession();
   const { data: lk } = useLookups();
   const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.get<Dashboard>('/dashboard') });
-  const user = lk?.users.find((u) => u.id === userId);
+  const user = lk?.users.find((u) => u.id === me?.id);
   const k = data?.kpis ?? {};
   const maxUnits = Math.max(1, ...(data?.byLocation.map((l) => Number(l.units)) ?? [1]));
 

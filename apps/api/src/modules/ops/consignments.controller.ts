@@ -9,8 +9,10 @@ import {
 } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, paging, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 /** Mercadería en poder de un tercero: qué tiene, qué vendió y qué nos debe. */
+@Requires('inventory.read')
 @Controller('ops/consignments')
 export class ConsignmentsController {
   constructor(private readonly dbs: DbService) {}
@@ -72,6 +74,7 @@ export class ConsignmentsController {
     return { ...c, lines: lines.rows, settlements: settlements.rows };
   }
 
+  @Requires('ops.consignment')
   @Post()
   create(@CurrentUser() u: SessionUser, @Body(zod(consignmentInput)) b: ConsignmentInput) {
     return this.dbs.tx(u, async (trx) => {
@@ -95,6 +98,7 @@ export class ConsignmentsController {
     });
   }
 
+  @Requires('ops.consignment')
   @Post(':id/send')
   send(@CurrentUser() u: SessionUser, @Param('id', ParseIntPipe) id: number) {
     return this.dbs.tx(u, async (trx) => {
@@ -103,6 +107,7 @@ export class ConsignmentsController {
     });
   }
 
+  @Requires('ops.consignment')
   @Post(':id/lines/:lineId/sale')
   sale(
     @CurrentUser() u: SessionUser,
@@ -115,6 +120,7 @@ export class ConsignmentsController {
     });
   }
 
+  @Requires('ops.consignment')
   @Post(':id/lines/:lineId/return')
   returnLine(
     @CurrentUser() u: SessionUser,
@@ -127,6 +133,7 @@ export class ConsignmentsController {
     });
   }
 
+  @Requires('ops.consignment.settle')
   @Post(':id/settle')
   settle(
     @CurrentUser() u: SessionUser,

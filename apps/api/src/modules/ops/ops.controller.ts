@@ -4,11 +4,13 @@ import { z } from 'zod';
 import { layawayPaymentInput } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 /**
  * Lo transversal de los procesos: dónde está todo, qué está vencido, y los
  * apartados con sus cuotas.
  */
+@Requires('inventory.read')
 @Controller('ops')
 export class OpsController {
   constructor(private readonly dbs: DbService) {}
@@ -70,6 +72,7 @@ export class OpsController {
     return { items: rows.rows };
   }
 
+  @Requires('ops.layaway')
   @Post('layaways/:id/payments')
   addPayment(
     @CurrentUser() u: SessionUser,
@@ -87,6 +90,7 @@ export class OpsController {
   }
 
   /** Caduca los apartados vencidos y libera la pieza reservada. */
+  @Requires('ops.layaway')
   @Post('layaways/expire')
   expire(@CurrentUser() u: SessionUser) {
     return this.dbs.tx(u, async (trx) => {

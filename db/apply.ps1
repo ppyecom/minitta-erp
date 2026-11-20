@@ -47,7 +47,19 @@ $conn = @('-h', $PgHost, '-p', $Port, '-U', $User, '-P', 'pager=off')  # sin "--
 # invocacion, siempre con -c solo.
 function Invoke-Maintenance {
   param([string]$Sql)
-  & $psql @conn @('-v','ON_ERROR_STOP=1','-d','postgres','-q','-c', $Sql)
+  # DROP DATABASE IF EXISTS avisa por stderr cuando la base no estaba. Con
+  # $ErrorActionPreference = 'Stop' (y sobre todo en Windows PowerShell 5.1, que
+  # es el que usa "npm run"), ese aviso corta el script. Se baja el nivel de
+  # mensajes solo para estas invocaciones: las migraciones y las pruebas de humo
+  # sí tienen que mostrar sus NOTICE.
+  $prev = $env:PGOPTIONS
+  $env:PGOPTIONS = '-c client_min_messages=warning'
+  try {
+    & $psql @conn @('-v','ON_ERROR_STOP=1','-d','postgres','-q','-c', $Sql)
+  } finally {
+    if ($null -eq $prev) { Remove-Item env:PGOPTIONS -ErrorAction SilentlyContinue }
+    else { $env:PGOPTIONS = $prev }
+  }
   if ($LASTEXITCODE -ne 0) { throw "psql fallo (exit $LASTEXITCODE) en: $Sql" }
 }
 

@@ -675,7 +675,7 @@ export function VariantSheet({
   canSeeCost: boolean;
   nominalWeight: number | null;
 }) {
-  const { userId } = useSession();
+  const { can } = useSession();
   return (
     <Sheet
       open={open}
@@ -724,7 +724,7 @@ export function VariantSheet({
               <CostEditor variantId={variant.id} productId={productId} cost={cost} />
             ) : (
               <p className="text-[13px] text-muted-foreground">
-                {userId ? 'Su usuario no tiene permiso para ver costos.' : 'Elija un usuario para ver costos.'}
+                {can('cost.read') ? 'Esta variante todavia no tiene costo cargado.' : 'Su usuario no tiene permiso para ver costos.'}
               </p>
             )}
           </section>

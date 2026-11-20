@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
   NotFoundException,
   Param,
   ParseIntPipe,
@@ -20,7 +19,10 @@ import { ProductInput, productInput } from '@minitta/shared';
 import { DbService, SessionUser, Tx } from '../../db/db.service';
 import { CurrentUser, paging, zod } from '../../common/http';
 import { MediaService } from './media.service';
+import { Requires } from '../../auth/auth.guard';
+import type { AuthenticatedUser } from '../../auth/auth.service';
 
+@Requires('catalog.read')
 @Controller('products')
 export class ProductsController {
   constructor(
@@ -78,7 +80,7 @@ export class ProductsController {
   }
 
   @Get(':id')
-  async get(@Param('id', ParseIntPipe) id: number, @Headers('x-user-id') userId?: string) {
+  async get(@CurrentUser() u: AuthenticatedUser, @Param('id', ParseIntPipe) id: number) {
     const db = this.dbs.db;
     const product = await sql<Record<string, unknown>>`
       SELECT p.*, pc.category_id, m.name AS material_name, m.is_priced_by_weight
@@ -90,17 +92,9 @@ export class ProductsController {
       .then((r) => r.rows[0]);
     if (!product) throw new NotFoundException('Producto no encontrado');
 
-    const canSeeCost = userId
-      ? Boolean(
-          (
-            await db
-              .selectFrom('core.app_user')
-              .select('can_see_cost')
-              .where('id', '=', Number(userId) || 0)
-              .executeTakeFirst()
-          )?.can_see_cost,
-        )
-      : false;
+    // el permiso ya viene resuelto en la sesión (core.user_can), no hace falta
+    // volver a consultarlo por cada producto
+    const canSeeCost = u.permissions.has('cost.read');
 
     const [tags, media, variants, stones, prices, stock, costs] = await Promise.all([
       db.selectFrom('catalog.product_tag').select('tag_id').where('product_id', '=', id).execute(),
@@ -183,6 +177,7 @@ export class ProductsController {
     };
   }
 
+  @Requires('catalog.write')
   @Post()
   create(@CurrentUser() u: SessionUser, @Body(zod(productInput)) body: ProductInput) {
     return this.dbs.tx(u, async (trx) => {
@@ -201,6 +196,7 @@ export class ProductsController {
     });
   }
 
+  @Requires('catalog.write')
   @Put(':id')
   update(
     @CurrentUser() u: SessionUser,
@@ -243,6 +239,7 @@ export class ProductsController {
   }
 
   // ---- imágenes locales -------------------------------------------------------
+  @Requires('catalog.write')
   @Post(':id/media')
   @UseInterceptors(FilesInterceptor('files', 20, { limits: { fileSize: 25 * 1024 * 1024 } }))
   async upload(
@@ -283,6 +280,7 @@ export class ProductsController {
     });
   }
 
+  @Requires('catalog.write')
   @Patch('media/:mediaId/primary')
   setPrimary(@CurrentUser() u: SessionUser, @Param('mediaId', ParseIntPipe) mediaId: number) {
     return this.dbs.tx(u, async (trx) => {
@@ -297,6 +295,7 @@ export class ProductsController {
     });
   }
 
+  @Requires('catalog.write')
   @Delete('media/:mediaId')
   async removeMedia(@CurrentUser() u: SessionUser, @Param('mediaId', ParseIntPipe) mediaId: number) {
     const m = await this.dbs.tx(u, (trx) =>

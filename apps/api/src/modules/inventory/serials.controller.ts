@@ -15,8 +15,10 @@ import { z } from 'zod';
 import { SerialItemInput, certificationInput, serialItemInput } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, paging, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 /** Piezas serializadas: cada joya física con su peso real, ubicación y certificados. */
+@Requires('inventory.read')
 @Controller('serials')
 export class SerialsController {
   constructor(private readonly dbs: DbService) {}
@@ -80,6 +82,7 @@ export class SerialsController {
    * Alta de una pieza. Si se indica sede, entra al stock en el mismo paso con
    * un movimiento de compra o apertura (el saldo nunca se escribe directo).
    */
+  @Requires('inventory.move')
   @Post()
   create(@CurrentUser() u: SessionUser, @Body(zod(serialItemInput)) b: SerialItemInput) {
     return this.dbs.tx(u, async (trx) => {
@@ -141,6 +144,7 @@ export class SerialsController {
     });
   }
 
+  @Requires('inventory.move')
   @Put(':id')
   update(
     @CurrentUser() u: SessionUser,
@@ -163,6 +167,7 @@ export class SerialsController {
     );
   }
 
+  @Requires('inventory.move')
   @Post(':id/certifications')
   addCertificate(
     @CurrentUser() u: SessionUser,

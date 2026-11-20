@@ -1,6 +1,6 @@
 # CLAUDE.md — reglas de trabajo en este repo
 
-Este archivo no resume el proyecto (para eso están el [README](README.md) y `docs/01`..`docs/06`).
+Este archivo no resume el proyecto (para eso están el [README](README.md) y `docs/01`..`docs/10`).
 Fija las reglas que el esquema **ya impone** y que es fácil romper desde la aplicación.
 
 Base: PostgreSQL 16+ (verificado en 18.1). Esquemas `core`, `catalog`, `pricing`, `inventory`, `ops`.
@@ -58,6 +58,9 @@ Sin `app.user_id`, los movimientos sin `created_by` explícito se rechazan y la 
 queda sin autor. El pool de conexiones tiene que setearlo al tomar la conexión, no una vez
 al arrancar.
 
+Ese usuario sale de la **sesión autenticada** (`core.user_session`), no de un dato que manda
+el cliente. Ver la sección 8.
+
 ## 5. Convenciones del esquema
 
 - **Nombres en inglés**, `snake_case`, tablas en singular (`product`, `variant`, `movement`).
@@ -74,17 +77,20 @@ al arrancar.
 
 ## 6. Migraciones
 
-- Son **archivos numerados en `db/`** (`001_core.sql` .. `011_pendientes.sql`).
+- Son **archivos numerados en `db/`** (`001_core.sql` .. `012_auth.sql`).
 - Se **agregan**: un archivo ya aplicado no se edita nunca. Un cambio al esquema es un
   `008_...sql` nuevo.
 - Se aplican con [`db/apply.ps1`](db/apply.ps1) (Windows) o [`db/apply.sh`](db/apply.sh), no a
   mano. Ambos aplican `db/0*.sql` en orden con `ON_ERROR_STOP=1`.
 - Las pruebas de humo son `db/99*.sql` y las corre `--smoke-test` / `-SmokeTest`, todas, en
-  orden. Cada una va en una sola transacción y debe salir con **exit 0**:
+  orden. Cada una va en una sola transacción, termina en `ROLLBACK` (verifica y no deja
+  datos) y debe salir con **exit 0**:
+  `996_smoke_auth.sql` (roles y permisos, 4 reglas en `RECHAZADO`),
   `997_smoke_pendientes.sql` (lista de trabajo), `998_smoke_ops.sql` (procesos, 7 reglas
   en `RECHAZADO`) y `999_smoke_test.sql` (inventario, casos 1–8 más el 6b y 6 reglas en
-  `RECHAZADO`).
-  Las dos terminan en `ROLLBACK`: verifican y no dejan datos.
+  `RECHAZADO`). En total son 17 reglas que tienen que decir `RECHAZADO`.
+- La prueba de punta a punta de la API es `npm run test:auth` (`scripts/e2e-auth.ps1`):
+  levanta la API contra una base desechable y la borra al terminar. Necesita PowerShell 7.
 - Los scripts de migración desde el legacy viven en **`db/migration/`** y son otra cosa:
   no forman parte del esquema y se corren una sola vez, con `db/migration/run.ps1`.
   Ese script **borra la base de destino**: se corta solo si ya tiene datos, salvo `-Force`.
@@ -107,12 +113,43 @@ Ver [docs/08](docs/08-procesos.md). Tres reglas que la aplicación no puede salt
 La merma **recuperada** (`is_recovered`) cuadra el peso pero no cuenta contra el estándar de
 `ops.loss_standard`: ese oro sigue siendo nuestro.
 
-## 8. La aplicación (apps/api, apps/web)
+## 8. Login y permisos (`core`, apps/api/src/auth)
+
+Ver [docs/10](docs/10-login-y-permisos.md). Esto es lo que hace que el `created_by` de un
+movimiento y la firma de una merma signifiquen algo, así que no se puede relajar:
+
+- **La cabecera `x-user-id` ya no existe.** El usuario sale de la cookie de sesión
+  (`core.user_session`), que pone la API al validar la contraseña. Nunca volver a aceptar el
+  id de usuario como dato de entrada: era el agujero que esta etapa cerró.
+- **`AuthGuard` está registrado como `APP_GUARD`: todo endpoint pide sesión por omisión.**
+  Un endpoint se abre con `@Public()` a propósito (hoy sólo `/auth/status`, `/auth/bootstrap`
+  y `/auth/login`). Un módulo nuevo no puede dejar un agujero por olvido — no desactivar el
+  guard global para "simplificar".
+- **`core.user_can(user_id, permiso)` es el único lugar donde se evalúa un permiso.** No
+  consultar `core.user_role` / `core.role_permission` por su cuenta: `user_can()` también
+  resuelve que el rol `admin` puede todo (incluidos los permisos que se creen después) y que
+  `can_see_cost` sigue dando `cost.read`. Consultar las tablas directo crea una segunda
+  fuente de verdad que se va a contradecir.
+- **El permiso se declara con `@Requires('...')`**, a nivel de clase para la lectura del
+  dominio y sobre el método para la acción. Un permiso nuevo es un `INSERT` en
+  `core.permission`, no una migración de tipo. Y hay que agregarlo también a `db/996`.
+- **Ver y aplicar no son el mismo permiso.** `inventory.count` carga el conteo,
+  `inventory.count.apply` convierte las diferencias en movimientos; `ops.consignment` vs.
+  `ops.consignment.settle`, igual. No colapsarlos.
+- **La merma la firma otra persona**, y eso lo impone la base
+  (`wo_loss_approver_is_someone_else`), no la aplicación. No quitar esa restricción.
+- La web esconde con `can('...')` lo que el usuario no puede usar, pero **eso es cortesía, no
+  seguridad**: el corte está en la API. No mover una validación de permiso a la web.
+- **De la cookie sólo se guarda el SHA-256.** No guardar el token en claro, no devolver nunca
+  `password_hash` en una respuesta, y no loguear contraseñas.
+- En producción detrás de HTTPS hay que poner `secure: true` en la cookie
+  (`auth.controller.ts`); hoy está en `false` porque corre en `http://localhost`.
+
+## 9. La aplicación (apps/api, apps/web)
 
 - **Toda escritura pasa por `DbService.tx(user, fn)`**: abre la transacción y fija
   `app.user_id`/`app.client_info` con `set_config(..., true)`. No escribir con `dbs.db` directo.
-- El usuario llega en la cabecera `x-user-id` (decorador `@CurrentUser()`). Cuando exista el
-  login, se reemplaza ahí y en `apps/web/src/lib/session.tsx`, sin tocar los controladores.
+  La única excepción es el login, que todavía no tiene usuario (`auth.service.ts`).
 - Las validaciones de entrada viven en `packages/shared/src/schemas.ts` y se aplican con
   `@Body(zod(schema))`. Los enums con su etiqueta en español, en `packages/shared/src/enums.ts`:
   si una migración agrega un valor a un `CREATE TYPE`, se agrega ahí también.
@@ -126,7 +163,7 @@ La merma **recuperada** (`is_recovered`) cuadra el peso pero no cuenta contra el
   (`ops.start_work_order`, `ops.close_work_order`, `ops.send_consignment`…). Un `UPDATE`
   directo sobre `ops.work_order.status` saltea el cuadre de gramos.
 
-## 9. Nunca commitear
+## 10. Nunca commitear
 
 - `.env` (hay `.env.example` con las variables, sin valores).
 - CSV, XLSX o `.bak` con datos del ERP viejo, ni exports, ni capturas de la base de

@@ -3,6 +3,7 @@ import { sql } from 'kysely';
 import { LocationInput, UserInput, locationInput, userInput } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
 @Controller()
 export class CoreController {
@@ -64,6 +65,7 @@ export class CoreController {
     return this.dbs.db.selectFrom('core.app_user').selectAll().orderBy('is_system').orderBy('full_name').execute();
   }
 
+  @Requires('core.users')
   @Post('users')
   createUser(@CurrentUser() u: SessionUser, @Body(zod(userInput)) body: UserInput) {
     return this.dbs.tx(u, (trx) =>
@@ -71,6 +73,7 @@ export class CoreController {
     );
   }
 
+  @Requires('core.users')
   @Put('users/:id')
   updateUser(
     @CurrentUser() u: SessionUser,
@@ -82,22 +85,8 @@ export class CoreController {
     );
   }
 
-  /** Primer arranque: si no hay usuarios de personas, crea el del administrador. */
-  @Post('users/bootstrap')
-  async bootstrap(@Body(zod(userInput)) body: UserInput) {
-    const people = await this.dbs.db
-      .selectFrom('core.app_user')
-      .select(sql<number>`count(*)::int`.as('n'))
-      .where('is_system', '=', false)
-      .executeTakeFirstOrThrow();
-    if (people.n > 0) return { created: false };
-    const user = await this.dbs.db
-      .insertInto('core.app_user')
-      .values({ ...body, can_see_cost: true })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    return { created: true, user };
-  }
+  // El primer usuario ya no se crea acá: necesita contraseña y el rol de
+  // administrador, así que vive en POST /auth/bootstrap (apps/api/src/auth).
 
   // ---- sedes ----------------------------------------------------------------
   @Get('locations')
@@ -114,6 +103,7 @@ export class CoreController {
       .then((r) => r.rows);
   }
 
+  @Requires('core.locations')
   @Post('locations')
   createLocation(@CurrentUser() u: SessionUser, @Body(zod(locationInput)) body: LocationInput) {
     return this.dbs.tx(u, (trx) =>
@@ -121,6 +111,7 @@ export class CoreController {
     );
   }
 
+  @Requires('core.locations')
   @Put('locations/:id')
   updateLocation(
     @CurrentUser() u: SessionUser,
@@ -133,6 +124,7 @@ export class CoreController {
   }
 
   // ---- auditoría --------------------------------------------------------------
+  @Requires('core.audit')
   @Get('audit/:entity/:id')
   audit(@Param('entity') entity: string, @Param('id', ParseIntPipe) id: number) {
     return sql`

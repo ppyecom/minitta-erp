@@ -4,7 +4,9 @@ import { z } from 'zod';
 import { exchangeRateInput, metalRateInput, priceListInput } from '@minitta/shared';
 import { DbService, SessionUser } from '../../db/db.service';
 import { CurrentUser, paging, zod } from '../../common/http';
+import { Requires } from '../../auth/auth.guard';
 
+@Requires('pricing.read')
 @Controller('pricing')
 export class PricingController {
   constructor(private readonly dbs: DbService) {}
@@ -24,6 +26,7 @@ export class PricingController {
       .then((r) => r.rows);
   }
 
+  @Requires('pricing.write')
   @Put('lists/:id')
   updateList(
     @CurrentUser() u: SessionUser,
@@ -71,6 +74,7 @@ export class PricingController {
   }
 
   /** Tras cambiar el precio del gramo: recalcula el caché de los precios por peso/margen. */
+  @Requires('pricing.write')
   @Post('refresh')
   refresh(@CurrentUser() u: SessionUser, @Body('price_list_id') listId?: number) {
     return this.dbs.tx(u, async (trx) => {
@@ -96,6 +100,7 @@ export class PricingController {
       .then((r) => r.rows);
   }
 
+  @Requires('pricing.write')
   @Post('metal-rates')
   addMetalRate(@CurrentUser() u: SessionUser, @Body(zod(metalRateInput)) b: z.infer<typeof metalRateInput>) {
     return this.dbs.tx(u, (trx) =>
@@ -125,6 +130,7 @@ export class PricingController {
       .execute();
   }
 
+  @Requires('pricing.write')
   @Post('exchange-rates')
   addExchangeRate(@CurrentUser() u: SessionUser, @Body(zod(exchangeRateInput)) b: z.infer<typeof exchangeRateInput>) {
     return this.dbs.tx(u, (trx) =>
